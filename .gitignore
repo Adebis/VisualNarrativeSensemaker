@@ -1,0 +1,12 @@
+data/cskg/
+data/inputs/
+data/outputs/
+data/commonsense_knowledge.db
+data/filter_objects.txt
+data/filter_relationships.txt
+src/__pycache__/
+src/commonsense/__pycache__/
+src/hypothesis/__pycache__/
+src/input_handling/__pycache__/
+src/knowledge_graph/__pycache__/
+src/output_handling/__pycache__/
