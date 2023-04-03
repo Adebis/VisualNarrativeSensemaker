@@ -22,9 +22,6 @@ public class Main : MonoBehaviour
         string json_text = File.ReadAllText(output_file_path);
         SensemakerData sensemaker_data = JsonConvert.DeserializeObject<SensemakerData>(
             json_text, new SensemakerDataConverter());
-        print(sensemaker_data.knowledge_graph);
-        print(sensemaker_data.hypotheses);
-        print(sensemaker_data.solutions);
     }
 
     // Update is called once per frame

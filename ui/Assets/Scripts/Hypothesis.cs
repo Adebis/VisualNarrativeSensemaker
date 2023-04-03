@@ -110,17 +110,17 @@ public class ConceptEdgeHypothesis : Hypothesis
     }
 }
 
-public class InstanceHypothesis : Hypothesis
+public class ObjectHypothesis : Hypothesis
 {
-    public int instance_id;
-    public ObjectNode instance;
+    public int object_id;
+    public ObjectNode obj;
     public List<int> concept_edge_hypothesis_ids;
     public Dictionary<int, ConceptEdgeHypothesis> concept_edge_hypotheses;
 
 
-    public InstanceHypothesis(JToken token) : base(token)
+    public ObjectHypothesis(JToken token) : base(token)
     {
-        this.instance_id = (int)token["instance"];
+        this.object_id = (int)token["object"];
         this.concept_edge_hypothesis_ids = new List<int>();
         foreach (JToken ce_hypothesis_id in token["concept_edge_hypotheses"])
         {

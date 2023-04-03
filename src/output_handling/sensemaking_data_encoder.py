@@ -15,7 +15,7 @@ from hypothesis.hypothesis import (Evidence, ConceptEdgeEvidence,
                                    AttributeSimilarityEvidence,
                                    Hypothesis,
                                    ConceptEdgeHypothesis,
-                                   InstanceHypothesis,
+                                   ObjectHypothesis,
                                    ObjectDuplicateHypothesis)
 from hypothesis.hypothesis_evaluator import Solution
 
@@ -59,8 +59,8 @@ class SensemakingDataEncoder(json.JSONEncoder):
             return self._encode_attribute_similarity_evidence(o)
         elif isinstance(o, ConceptEdgeHypothesis):
             return self._encode_concept_edge_hypothesis(o)
-        elif isinstance(o, InstanceHypothesis):
-            return self._encode_instance_hypothesis(o)
+        elif isinstance(o, ObjectHypothesis):
+            return self._encode_object_hypothesis(o)
         elif isinstance(o, ObjectDuplicateHypothesis):
             return self._encode_object_duplicate_hypothesis(o)
         elif isinstance(o, Solution):
@@ -374,24 +374,24 @@ class SensemakingDataEncoder(json.JSONEncoder):
         return h_dict
     # end _encode_concept_edge_hypothesis
 
-    def _encode_instance_hypothesis(self, i_hypothesis: InstanceHypothesis):
+    def _encode_object_hypothesis(self, obj_hypothesis: ObjectHypothesis):
         """
-        Encodes an InstanceHypothesis into a json serializable dict.
+        Encodes an ObjectHypothesis into a json serializable dict.
 
-        Adds a 'type' field with 'instance' as its value.
+        Adds a 'type' field with 'object' as its value.
 
-        instance is a hypothesized Instance which should be in the 
+        object is a hypothesized Object which should be in the 
         KnowledgeGraph. It is encoded as its id.
 
         concept_edge_hypotheses is encoded as a list of Hypothesis id.
         """
-        h_dict = self._encode_hypothesis(i_hypothesis)
-        h_dict.update({'type': 'instance',
-                       'instance': i_hypothesis.instance.id,
+        h_dict = self._encode_hypothesis(obj_hypothesis)
+        h_dict.update({'type': 'object',
+                       'object': obj_hypothesis.obj.id,
                        'concept_edge_hypotheses': [h.id for h in 
-                                        i_hypothesis.concept_edge_hypotheses]})
+                                        obj_hypothesis.concept_edge_hypotheses]})
         return h_dict
-    # end _encode_instance_hypothesis
+    # end _encode_object_hypothesis
 
     def _encode_object_duplicate_hypothesis(self, 
                                     od_hypothesis: ObjectDuplicateHypothesis):

@@ -82,9 +82,9 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
                     hypotheses[new_h.id] = new_h;
                     break;
                 }
-                case "instance":
+                case "object":
                 {
-                    var new_h = new InstanceHypothesis(h_token);
+                    var new_h = new ObjectHypothesis(h_token);
                     hypotheses[new_h.id] = new_h;
                     break;
                 }
@@ -142,24 +142,24 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
                 ce_h.target_instance = knowledge_graph.nodes[ce_h.target_instance_id];
                 ce_h.edge = knowledge_graph.edges[ce_h.edge_id];
             }
-            // Instance hypotheses reference a set of concept edge hypotheses
-            // and an instance Node.
+            // Object hypotheses reference a set of concept edge hypotheses
+            // and an ObjectNode.
             // Its ObjectNode references a set of Concept node and a set of Images.
-            else if (hypothesis is InstanceHypothesis)
+            else if (hypothesis is ObjectHypothesis)
             {
-                var i_h = (InstanceHypothesis)hypothesis;
-                i_h.instance = (ObjectNode)knowledge_graph.nodes[i_h.instance_id];
-                foreach (int ce_h_id in i_h.concept_edge_hypothesis_ids)
+                var obj_h = (ObjectHypothesis)hypothesis;
+                obj_h.obj = (ObjectNode)knowledge_graph.nodes[obj_h.object_id];
+                foreach (int ce_h_id in obj_h.concept_edge_hypothesis_ids)
                 {
-                    i_h.concept_edge_hypotheses[ce_h_id] = (ConceptEdgeHypothesis)hypotheses[ce_h_id];
+                    obj_h.concept_edge_hypotheses[ce_h_id] = (ConceptEdgeHypothesis)hypotheses[ce_h_id];
                 }
-                foreach (int concept_id in i_h.instance.concept_ids)
+                foreach (int concept_id in obj_h.obj.concept_ids)
                 {
-                    i_h.instance.concepts[concept_id] = (ConceptNode)knowledge_graph.nodes[concept_id];
+                    obj_h.obj.concepts[concept_id] = (ConceptNode)knowledge_graph.nodes[concept_id];
                 }
-                foreach (int image_id in i_h.instance.image_ids)
+                foreach (int image_id in obj_h.obj.image_ids)
                 {
-                    i_h.instance.images[image_id] = knowledge_graph.images[image_id];
+                    obj_h.obj.images[image_id] = knowledge_graph.images[image_id];
                 }
             }
             // Object duplicate hypotheses reference two ObjectNodes.

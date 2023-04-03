@@ -10,7 +10,7 @@ import constants as const
 from constants import ConceptType
 
 from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHypothesis, 
-                                   InstanceHypothesis, 
+                                   ObjectHypothesis, 
                                    ObjectDuplicateHypothesis,
                                    ActionHypothesis, Evidence, 
                                    ConceptEdgeEvidence)
@@ -136,7 +136,7 @@ class HypothesisGenerator:
 
         Returns a list of generated Hypotheses.
         """
-        instance_hypotheses = list()
+        object_hypotheses = list()
         concept_edge_hypotheses = list()
         object_duplicate_hypotheses = list()
 
@@ -147,69 +147,69 @@ class HypothesisGenerator:
                 if not image.id in current_object.images:
                     absent_images.append(image)
             # end for
-            # For each Image the Object is not in, make an InstanceHypothesis 
-            # that an Instance with the current Object's Concepts is in that 
-            # Image. 
+            # For each Image the Object is not in, make an ObjectHypothesis 
+            # that an Object with the current Object's Concepts, appearance, and
+            # attributes is in that Image. 
             for image in absent_images:
                 # Make the hypothesized Object.
                 # Make sure it has the original Object's attributes and
                 # appearance.
-                new_instance = Object(label=current_object.label,
-                                      image=image,
-                                      attributes=current_object.attributes,
-                                      appearance=current_object.appearance,
-                                      concepts=current_object.concepts,
-                                      hypothesized=True)
+                new_object = Object(label=current_object.label,
+                                    image=image,
+                                    attributes=current_object.attributes,
+                                    appearance=current_object.appearance,
+                                    concepts=current_object.concepts,
+                                    hypothesized=True)
                 # Give the hypothesized Object the focal score of the Object 
                 # it's copying.
-                new_instance.focal_score = current_object.focal_score
+                new_object.focal_score = current_object.focal_score
                 # Make ConceptEdgeHypotheses to every observed Instance in the
                 # same scene.
                 evidence_hypotheses = list()
                 for scene_instance in knowledge_graph.get_scene_instances(image):
                     evidence_hypotheses.extend(
                         self._make_concept_edge_hypotheses(
-                            instance_1=new_instance, 
+                            instance_1=new_object, 
                             instance_2=scene_instance))
                 # end for
                 # Make ConceptEdgeHypotheses to every other hypothesized
-                # Instance in the same scene.
-                scene_hypotheses = [h for h in instance_hypotheses
-                                    if h.instance.get_image() == image]
+                # Object in the same scene.
+                scene_hypotheses = [h for h in object_hypotheses
+                                    if h.obj.get_image() == image]
                 for existing_hypothesis in scene_hypotheses:
                     new_hypotheses = self._make_concept_edge_hypotheses(
-                        instance_1=new_instance, 
-                        instance_2=existing_hypothesis.instance)
-                    # Make the existing Instance hypothesis a premise for this
+                        instance_1=new_object, 
+                        instance_2=existing_hypothesis.obj)
+                    # Make the existing Object hypothesis a premise for this
                     # concept edge hypothesis, too, since it wouldn't exist
-                    # without the existing Instance hypothesis' Instance.
+                    # without the existing Object hypothesis.
                     for new_hypothesis in new_hypotheses:
                         new_hypothesis.add_premise(existing_hypothesis)
                     evidence_hypotheses.extend(new_hypotheses)
                 # end for
                 # Make the InstanceHypothesis using these ConceptEdgeHypotheses
                 # as evidence.
-                instance_hypothesis = InstanceHypothesis(
-                    instance=new_instance, 
+                object_hypothesis = ObjectHypothesis(
+                    obj=new_object, 
                     concept_edge_hypotheses=evidence_hypotheses)
                 # Make an ObjectDuplicateHypothesis between the original Object
                 # and the hypothesized Object.
                 object_duplicate_hypothesis = ObjectDuplicateHypothesis(
-                    current_object, new_instance)
+                    current_object, new_object)
                 # Premise the ObjectDuplicateHypothesis on the 
-                # InstanceHypothesis, since it wouldn't exist without the new 
-                # Instance being hypothesized.
-                object_duplicate_hypothesis.add_premise(instance_hypothesis)
-                # Premise the InstanceHypothesis on the ObjectDuplicateHypothesis,
-                # since if it isn't a duplicate of the original Instance it has
+                # ObjectHypothesis, since it wouldn't exist without the new 
+                # Object being hypothesized.
+                object_duplicate_hypothesis.add_premise(object_hypothesis)
+                # Premise the ObjectHypothesis on the ObjectDuplicateHypothesis,
+                # since if it isn't a duplicate of the original Object it has
                 # no reason to exist.
-                instance_hypothesis.add_premise(object_duplicate_hypothesis)
+                object_hypothesis.add_premise(object_duplicate_hypothesis)
                 # Make sure to store the new Hypotheses
-                instance_hypotheses.append(instance_hypothesis)
+                object_hypotheses.append(object_hypothesis)
                 concept_edge_hypotheses.extend(evidence_hypotheses)
                 object_duplicate_hypotheses.append(object_duplicate_hypothesis)
 
-                # Go through each observed Instance in this image and make an
+                # Go through each observed Object in this image and make an
                 # ObjectDuplicateHypothesis with any of them whose Concepts
                 # overlap with this current Object.
                 scene_instances = knowledge_graph.get_scene_instances(image)
@@ -232,17 +232,17 @@ class HypothesisGenerator:
             # end for image in absent_images
         # end for current_object in knowledge_graph.objects.values()
 
-        # Returns both the new InstanceHypotheses and the new
+        # Returns both the new ObjectHypotheses and the new
         # ConceptEdgeHypotheses.
         all_new_hypotheses = list()
-        all_new_hypotheses.extend(instance_hypotheses)
+        all_new_hypotheses.extend(object_hypotheses)
         all_new_hypotheses.extend(concept_edge_hypotheses)
         all_new_hypotheses.extend(object_duplicate_hypotheses)
         return all_new_hypotheses
     # end _make_hypotheses_for_continuity
 
 
-    # TODO: Delete this
+    # TODO: Delete this?
     def _generate_action_hypotheses(self, knowledge_graph: KnowledgeGraph):
         """
         Generates hypotheses for unobserved actions.

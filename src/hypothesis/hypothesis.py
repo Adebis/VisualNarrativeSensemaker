@@ -325,33 +325,32 @@ class ConceptEdgeHypothesis(Hypothesis):
     # end calculate_score
 # end class ConceptEdgeHypothesis
 
-class InstanceHypothesis(Hypothesis):
+class ObjectHypothesis(Hypothesis):
     """
-    A Hypothesis that a hypothetical Instance exists.
+    A Hypothesis that an Object exists which was not observed in a scene graph.
 
-    If the Hypothesis is accepted, the hypothetical Instance would be added to
+    If the Hypothesis is accepted, the hypothetical Object would be added to
     the KnowledgeGraph.
 
     Evidence for this Hypothesis is the OtherHypothesisEvidence for a series of 
     ConceptEdgeHypotheses, each hypothesizing an Edge between the hypothetical 
-    Instance's Concept and another Instance's Concept in the same scene.
+    Object's Concept and another Object's Concept in the same scene.
 
     Attributes
     ----------
-    instance : Instance
-        The hypothesized Instance.
+    obj : Object
+        The hypothesized Object.
     concept_edge_hypotheses : list[Hypothesis]
-        The hypothesized Concept Edges from the hypothesized Instance's Concept
+        The hypothesized Concept Edges from the hypothesized Object's Concept
         to each other Instance's Concept in the same scene.
     """
-    instance: Instance
+    obj: Object
     concept_edge_hypotheses: list[Hypothesis]
 
-    def __init__(self, instance: Instance, 
-                 concept_edge_hypotheses: list[Hypothesis]):
+    def __init__(self, obj: Object, concept_edge_hypotheses: list[Hypothesis]):
         """
-        Initializes an InstanceHypothesis with the hypothetical Instance and
-        the ConceptEdgeHypotheses between it and the other Instances in its
+        Initializes an ObjectHypothesis with the hypothetical Object and
+        the ConceptEdgeHypotheses between it and the other Objects in its
         scene. 
 
         Makes its own OtherHypothesisEvidence out of the ConceptEdgeHypotheses
@@ -360,7 +359,7 @@ class InstanceHypothesis(Hypothesis):
         Also sets itself as a premise for every ConceptEdgeHypothesis provided
         to it. 
         """
-        name = (f'instance_h_{Hypothesis._next_id}_{instance.name}')
+        name = (f'object_h_{Hypothesis._next_id}_{obj.name}')
         # Make OtherHypothesisEvidence for each concept edge hypothesis passed
         # in.
         evidence = [OtherHypothesisEvidence(h) for h in concept_edge_hypotheses]
@@ -370,7 +369,7 @@ class InstanceHypothesis(Hypothesis):
         # Instance.
         for hypothesis in concept_edge_hypotheses:
             hypothesis.add_premise(premise=self)
-        self.instance = instance
+        self.obj = obj
         self.concept_edge_hypotheses = concept_edge_hypotheses
 
         self.calculate_score()
@@ -389,7 +388,7 @@ class InstanceHypothesis(Hypothesis):
         self.score = score
         return score
     # end calculate_score
-# end InstanceHypothesis
+# end ObjectHypothesis
 
 class ObjectDuplicateHypothesis(Hypothesis):
     """

@@ -9,7 +9,7 @@ from knowledge_graph.graph import KnowledgeGraph
 from knowledge_graph.items import (Instance, Edge)
 from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHypothesis, 
                                    ObjectDuplicateHypothesis, 
-                                   InstanceHypothesis)
+                                   ObjectHypothesis)
 
 @dataclass
 class Solution():
@@ -107,8 +107,8 @@ class HypothesisEvaluator():
         individual_scores.update(i_scores)
         paired_scores.update(p_scores)
 
-        # Score all InstanceHypotheses
-        i_scores, p_scores = self._predict_instance_scores(
+        # Score all ObjectHypotheses
+        i_scores, p_scores = self._predict_object_scores(
             knowledge_graph=knowledge_graph, hypotheses=hypotheses)
         individual_scores.update(i_scores)
         paired_scores.update(p_scores)
@@ -478,10 +478,10 @@ class HypothesisEvaluator():
         return id_triplets
     # end _find_transitive_property_triplets
 
-    def _predict_instance_scores(self, knowledge_graph: KnowledgeGraph, 
+    def _predict_object_scores(self, knowledge_graph: KnowledgeGraph, 
                                  hypotheses: dict[int, Hypothesis]):
         """
-        Predicts scores for all of the InstanceHypotheses.
+        Predicts scores for all of the ObjectHypotheses.
 
         Parameters
         ----------
@@ -493,7 +493,7 @@ class HypothesisEvaluator():
         Returns
         -------
         individual_scores : dict[int, float]
-            The individual scores for each InstanceHypothesis, keyed by
+            The individual scores for each ObjectHypothesis, keyed by
             hypothesis id.
         paired_scores : dict[tuple[int, int], float]
             The paired scores for accepting hypotheses together, keyed by
@@ -501,39 +501,39 @@ class HypothesisEvaluator():
         """
         individual_scores = dict()
         paired_scores = dict()
-        # Get all the InstanceHypotheses.
-        i_hypotheses = [h for h in hypotheses.values()
-                        if type(h) == InstanceHypothesis]
-        for hypothesis in i_hypotheses:
+        # Get all the ObjectHypotheses.
+        obj_hypotheses = [h for h in hypotheses.values()
+                        if type(h) == ObjectHypothesis]
+        for hypothesis in obj_hypotheses:
             # Get the image for the scene this hypothesized Instance is in.
-            image = hypothesis.instance.get_image()
+            image = hypothesis.obj.get_image()
             # Get all the observed Instances in the same scene.
             observed_instances = knowledge_graph.get_scene_instances(image)
-            # Get all the InstanceHypotheses in the same scene that are
+            # Get all the ObjectHypotheses in the same scene that are
             # not this hypothesis.
-            scene_i_hypotheses = [h for h in i_hypotheses
-                                  if h.instance.get_image() == image and
-                                  not h == hypothesis]
-            # The base assumption is that the hypothesized Instance has no
+            scene_obj_hypotheses = [h for h in obj_hypotheses
+                                    if h.obj.get_image() == image and
+                                    not h == hypothesis]
+            # The base assumption is that the hypothesized Object has no
             # relationships with any other Instance in the scene. 
             # Add one no_relationship_penalty score to the hypothesis for every
             # Observed Instance in the scene.
             score = (len(observed_instances) * 
                      self.parameters.no_relationship_penalty)
-            # Multiply the score by the hypothesized Instance's centrality.
-            centrality_factor = hypothesis.instance.get_centrality()
+            # Multiply the score by the hypothesized Object's centrality.
+            centrality_factor = hypothesis.obj.get_centrality()
             score *= centrality_factor
             individual_scores[hypothesis.id] = score
-            # Add a paired score for each hypothesized Instance in the same
+            # Add a paired score for each hypothesized Obect in the same
             # scene equal to one no_relationship_penalty.
-            for scene_i_hypothesis in scene_i_hypotheses:
+            for scene_obj_hypothesis in scene_obj_hypotheses:
                 score = self.parameters.no_relationship_penalty
                 score *= centrality_factor
-                id_pair_1 = (hypothesis.id, scene_i_hypothesis.id)
-                id_pair_2 = (scene_i_hypothesis.id, hypothesis.id)
+                id_pair_1 = (hypothesis.id, scene_obj_hypothesis.id)
+                id_pair_2 = (scene_obj_hypothesis.id, hypothesis.id)
                 paired_scores[id_pair_1] = score
                 paired_scores[id_pair_2] = score
-            # end for scene_i_hypothesis
+            # end for scene_obj_hypothesis
             # Go through all of this hypothesis' ConceptEdgeHypotheses.
             for ce_hypothesis in hypothesis.concept_edge_hypotheses:
                 # The paired score for accepting this edge is equal to the score 
@@ -545,9 +545,9 @@ class HypothesisEvaluator():
                 paired_scores[id_pair_1] = score
                 paired_scores[id_pair_2] = score
             # end for ce_hypothesis
-        # end for hypothesis in i_hypotheses
+        # end for hypothesis in obj_hypotheses
         return (individual_scores, paired_scores)
-    # end _score_instance_hypotheses
+    # end _predict_object_scores
 
     def _equal_id_pairs(self, pair_1: tuple[int, int], pair_2: tuple[int, int]):
         """
@@ -624,6 +624,7 @@ class HypothesisEvaluator():
         return (solution_sets, energies)
     # end _solve_mwis
 
+    # DEBUG: CURRENTLY UNUSED
     def score_hypothesis_set(self, knowledge_graph: KnowledgeGraph, 
                              hypotheses: dict[int, Hypothesis]):
         """
@@ -652,13 +653,13 @@ class HypothesisEvaluator():
         # as well as the strength of the edge for each ConceptEdgeHypothesis
         # that was accepted for it. 
         i_hypotheses = [h for h in hypotheses.values()
-                        if type(h) == InstanceHypothesis]
+                        if type(h) == ObjectHypothesis]
         for hypothesis in i_hypotheses:
             score = 0
-            image = hypothesis.instance.get_image()
+            image = hypothesis.obj.get_image()
             scene_instances = knowledge_graph.get_scene_instances(image)
-            scene_instances.extend(h.instance for h in i_hypotheses
-                                   if h.instance.get_image() == image)
+            scene_instances.extend(h.obj for h in i_hypotheses
+                                   if h.obj.get_image() == image)
         # end for
 
         return hypothesis_scores

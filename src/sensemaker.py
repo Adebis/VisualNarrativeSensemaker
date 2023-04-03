@@ -25,7 +25,7 @@ from hypothesis.hypothesis_generation import HypothesisGenerator
 from hypothesis.hypothesis_evaluator import HypothesisEvaluator
 from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHypothesis, 
                                    ObjectDuplicateHypothesis, 
-                                   InstanceHypothesis)
+                                   ObjectHypothesis)
 
 class SenseMaker:
     """
@@ -106,11 +106,11 @@ class SenseMaker:
         
         print(f'Writing output to json...')
 
-        # Add hypothetical instances to the knowledge graph before encoding.
-        instance_hs = [h for h in hypotheses.values() 
-                       if type(h) == InstanceHypothesis]
-        for h in instance_hs:
-            knowledge_graph.add_node(h.instance)
+        # Add hypothetical objects to the knowledge graph before encoding.
+        objects_hs = [h for h in hypotheses.values() 
+                       if type(h) == ObjectHypothesis]
+        for h in objects_hs:
+            knowledge_graph.add_node(h.obj)
         # end for
         output_dict = {'sensemaker_data': {'knowledge_graph': knowledge_graph,
                        'hypotheses': list(hypotheses.values()),
