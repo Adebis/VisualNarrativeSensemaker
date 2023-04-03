@@ -12,7 +12,7 @@ from constants import ConceptType
 from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHypothesis, 
                                    OffscreenObjectHypothesis, 
                                    ObjectDuplicateHypothesis,
-                                   OffscreenPersistenceHypothesis,
+                                   ObjectPersistenceHypothesis,
                                    ActionHypothesis, Evidence, 
                                    ConceptEdgeEvidence)
 
@@ -39,19 +39,19 @@ class HypothesisGenerator:
         #hypotheses.update(action_hypotheses)
 
         # Make ConceptEdgeHypotheses between all observed Instances.
-        observation_hypotheses = self._make_hypotheses_for_observations(
+        observation_hypotheses = self._hypothesize_for_observations(
             knowledge_graph)
         hypotheses.update({h.id: h for h in observation_hypotheses})
 
         # Make Hypotheses to establish continuity between Images.
-        continuity_hypotheses = self._make_hypotheses_for_continuity(knowledge_graph)
+        continuity_hypotheses = self._hypothesize_for_continuity(knowledge_graph)
         hypotheses.update({h.id: h for h in continuity_hypotheses})
 
         print("Done generating hypotheses")
         return hypotheses
     # end generate_hypotheses
 
-    def _make_hypotheses_for_observations(self, knowledge_graph: KnowledgeGraph):
+    def _hypothesize_for_observations(self, knowledge_graph: KnowledgeGraph):
         """
         Makes concept edge hypotheses between all observed Instances in 
         the knowledge graph with every other observed Instance in the same scene. 
@@ -83,7 +83,7 @@ class HypothesisGenerator:
                         or id_pair_2 in instance_pairs_checked):
                         continue
                     # Generate concept edge hypotheses between the two.
-                    hypotheses = self._make_concept_edge_hypotheses(
+                    hypotheses = self._hypothesize_concept_edge(
                         instance_1=instance_1, instance_2=instance_2)
                     new_hypotheses.extend(hypotheses)
                     # Log that the two instances have checked each other.
@@ -93,9 +93,9 @@ class HypothesisGenerator:
             # end for
         # end for
         return new_hypotheses
-    # _make_hypotheses_for_observations
+    # _hypothesize_for_observations
 
-    def _make_concept_edge_hypotheses(self, instance_1: Instance, 
+    def _hypothesize_concept_edge(self, instance_1: Instance, 
                                       instance_2: Instance):
         """
         Makes concept edge hypotheses between two Instances based on the
@@ -129,27 +129,23 @@ class HypothesisGenerator:
             # end for
         # end for
         return hypotheses
-    # end _make_concept_edge_hypotheses
+    # end _hypothesize_concept_edge
 
-    def _make_hypotheses_for_continuity(self, knowledge_graph: KnowledgeGraph):
+    def _hypothesize_for_continuity(self, knowledge_graph: KnowledgeGraph):
         """
         Generates Hypotheses to repair continuity between images.
 
         Returns a list of generated Hypotheses.
         """
-        object_hypotheses = list()
-        concept_edge_hypotheses = list()
-        object_duplicate_hypotheses = list()
-
-        all_new_hypotheses = self._make_offscreen_persistence_hypotheses(
+        all_new_hypotheses = self._hypothesize_object_persistence(
             knowledge_graph=knowledge_graph)
         
         # Get all observed and hypothesized Objects.
         all_objects = list(knowledge_graph.objects.values())
-        all_objects.extend([h.obj for h in all_new_hypotheses
-                            if type(h) == OffscreenPersistenceHypothesis])
+        all_objects.extend([h.object_ for h in all_new_hypotheses
+                            if type(h) == ObjectPersistenceHypothesis])
 
-        for current_object in all_objects.values():
+        for current_object in all_objects:
             # Get all the images the Object is NOT in.
             absent_images = list()
             for image in knowledge_graph.images.values():
@@ -173,7 +169,7 @@ class HypothesisGenerator:
                             new_od_h = ObjectDuplicateHypothesis(
                                 object_1=current_object,
                                 object_2=scene_instance)
-                            object_duplicate_hypotheses.append(new_od_h)
+                            all_new_hypotheses.append(new_od_h)
                             break
                         # end if
                     # end for
@@ -183,19 +179,12 @@ class HypothesisGenerator:
 
         # end for current_object in all_objects.values()
 
-        # Returns both the new ObjectHypotheses and the new
-        # ConceptEdgeHypotheses.
-        all_new_hypotheses = list()
-        all_new_hypotheses.extend(object_hypotheses)
-        all_new_hypotheses.extend(concept_edge_hypotheses)
-        all_new_hypotheses.extend(object_duplicate_hypotheses)
         return all_new_hypotheses
-    # end _make_hypotheses_for_continuity
+    # end _hypothesize_for_continuity
 
-    def _make_offscreen_persistence_hypotheses(self, 
-                                               knowledge_graph: KnowledgeGraph):
+    def _hypothesize_object_persistence(self, knowledge_graph: KnowledgeGraph):
         """
-        Generates OffscreenPersistenceHypotheses for all observed Objects
+        Generates ObjectPersistenceHypotheses for all observed Objects
         in the knowledge graph.
 
         Returns a list of all the new Hypotheses that were generated.
@@ -230,7 +219,7 @@ class HypothesisGenerator:
                 concept_edge_hypotheses = list()
                 for scene_instance in knowledge_graph.get_scene_instances(image):
                     concept_edge_hypotheses.extend(
-                        self._make_concept_edge_hypotheses(
+                        self._hypothesize_concept_edge(
                             instance_1=new_object, 
                             instance_2=scene_instance))
                 # end for
@@ -240,15 +229,15 @@ class HypothesisGenerator:
                                   if type(h) == OffscreenObjectHypothesis
                                   and h.obj.get_image() == image]
                 for existing_hypothesis in obj_hypotheses:
-                    new_hypotheses = self._make_concept_edge_hypotheses(
+                    ces_to_existing_hypotheses = self._hypothesize_concept_edge(
                         instance_1=new_object, 
                         instance_2=existing_hypothesis.obj)
                     # Make the existing Object hypothesis a premise for this
                     # concept edge hypothesis, too, since it wouldn't exist
                     # without the existing Object hypothesis.
-                    for new_hypothesis in new_hypotheses:
-                        new_hypothesis.add_premise(existing_hypothesis)
-                    concept_edge_hypotheses.extend(new_hypotheses)
+                    for ce_hypothesis in ces_to_existing_hypotheses:
+                        ce_hypothesis.add_premise(existing_hypothesis)
+                    concept_edge_hypotheses.extend(ces_to_existing_hypotheses)
                 # end for
                 # Make the OffscreenObjectHypothesis using these 
                 # ConceptEdgeHypotheses as evidence.
@@ -268,27 +257,28 @@ class HypothesisGenerator:
                 # the original Object it has no reason to exist.
                 offscreen_object_hypothesis.add_premise(object_duplicate_hypothesis)
 
-                # Make the OffscreenPersistenceHypothesis based on this
+                # Make the ObjectPersistenceHypothesis based on this
                 # OffscreenObjectHypothesis and ObjectDuplicateHypothesis.
-                offscreen_persistence_hypothesis = OffscreenPersistenceHypothesis(
+                object_persistence_hypothesis = ObjectPersistenceHypothesis(
+                    object_ = new_object,
                     offscreen_object_hypothesis=offscreen_object_hypothesis,
                     object_dulpicate_hypothesis=object_duplicate_hypothesis)
                 
                 # Premise both the object duplicate hypothesis and the offscreen
                 # object hypothesis on the offscreen persistence hypothesis, as
                 # they have no reason for existing without it.
-                offscreen_object_hypothesis.add_premise(offscreen_persistence_hypothesis)
-                object_duplicate_hypothesis.add_premise(offscreen_persistence_hypothesis)
+                offscreen_object_hypothesis.add_premise(object_persistence_hypothesis)
+                object_duplicate_hypothesis.add_premise(object_persistence_hypothesis)
 
                 # Make sure to store the new Hypotheses
                 new_hypotheses.append(offscreen_object_hypothesis)
                 new_hypotheses.extend(concept_edge_hypotheses)
                 new_hypotheses.append(object_duplicate_hypothesis)
-                new_hypotheses.extend(offscreen_persistence_hypothesis)
+                new_hypotheses.append(object_persistence_hypothesis)
             # end for image in absent_images
         # end for current_object in knowledge_graph.objects.values()
         return new_hypotheses
-    # end _make_offscreen_persistence_hypotheses
+    # end _hypothesize_object_persistence
 
 
     # TODO: Delete this?

@@ -474,7 +474,7 @@ class ObjectDuplicateHypothesis(Hypothesis):
 
 # end class ObjectDuplicateHypothesis
 
-class OffscreenPersistenceHypothesis(Hypothesis):
+class ObjectPersistenceHypothesis(Hypothesis):
     """
     A hypothesis that an Object in one image persists into another image
     as an off-screen Object. 
@@ -486,7 +486,7 @@ class OffscreenPersistenceHypothesis(Hypothesis):
 
     Attributes
     ----------
-    obj : Object
+    object_ : Object
         The existing Object that's hypothesized to persist into another image.
     offscreen_object_hypothesis : OffscreenObjectHypothesis
         The hypothesis hypothesizing a copy of the persisting object exists in 
@@ -496,7 +496,7 @@ class OffscreenPersistenceHypothesis(Hypothesis):
         its duplicate. 
     """
 
-    def __init__(self, obj: Object, 
+    def __init__(self, object_: Object, 
                  offscreen_object_hypothesis: OffscreenObjectHypothesis,
                  object_dulpicate_hypothesis: ObjectDuplicateHypothesis):
         """
@@ -505,15 +505,16 @@ class OffscreenPersistenceHypothesis(Hypothesis):
 
         Builds its own OtherHypothesisEvidence.
         """
-        self.obj = obj
+        self.object_ = object_
         self.offscreen_object_hypothesis = offscreen_object_hypothesis
         self.object_dulpicate_hypothesis = object_dulpicate_hypothesis
-
-        self.evidence.append(
+        evidence = list()
+        evidence.append(
             OtherHypothesisEvidence(offscreen_object_hypothesis))
-        self.evidence.append(
+        evidence.append(
             OtherHypothesisEvidence(object_dulpicate_hypothesis))
-        
+        name = (f'objpersist_h_{Hypothesis._next_id}_{object_.name}')
+        super().__init__(name=name, evidence=evidence)
         # Adds the two Hypotheses used as evidence as premises to this
         # hypothesis.
         self.add_premise(offscreen_object_hypothesis)
@@ -527,7 +528,7 @@ class OffscreenPersistenceHypothesis(Hypothesis):
         self.score = score
         return score
     # end calculate_score
-
+# end ObjectPersistenceHypothesis
 
 class ActionHypothesis(Hypothesis):
     """

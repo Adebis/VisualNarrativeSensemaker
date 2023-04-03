@@ -448,7 +448,7 @@ class KnowledgeGraph:
             self.concepts[node.id] = node
         elif issubclass(type(node), Instance):
             # Add all the Instance's Concepts to this knowledge graph.
-            for concept in node.concepts.values():
+            for concept in node.concepts:
                 self.add_node(concept)
             # Take all the images this node Instance is grounded in. 
             self.images.update(node.images)

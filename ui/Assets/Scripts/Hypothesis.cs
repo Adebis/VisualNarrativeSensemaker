@@ -146,3 +146,20 @@ public class ObjectDuplicateHypothesis : Hypothesis
         this.edge = new Edge(token["edge"]);
     }
 }
+
+public class ObjectPersistenceHypothesis : Hypothesis
+{
+    public int object_id;
+    public ObjectNode object_;
+    public int offscreen_obj_h_id;
+    public OffscreenObjectHypothesis offscreen_object_hypothesis;
+    public int object_duplicate_h_id;
+    public ObjectDuplicateHypothesis object_duplicate_hypothesis;
+
+    public ObjectPersistenceHypothesis(JToken token) : base(token)
+    {
+        this.object_id = (int)token["object_"];
+        this.offscreen_obj_h_id = (int)token["offscreen_object_hypothesis"];
+        this.object_duplicate_h_id = (int)token["object_duplicate_hypothesis"];
+    }
+}

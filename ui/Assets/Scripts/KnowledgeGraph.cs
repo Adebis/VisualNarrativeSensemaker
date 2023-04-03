@@ -36,19 +36,19 @@ public class KnowledgeGraph
         {
             switch ((string)node_token["type"])
             {
-                case "concept":
+                case "Concept":
                 {
                     var new_node = new ConceptNode(node_token);
                     nodes[new_node.id] = new_node;
                     break;
                 }
-                case "object":
+                case "Object":
                 {
                     var new_node = new ObjectNode(node_token);
                     nodes[new_node.id] = new_node;
                     break;
                 }
-                case "action":
+                case "Action":
                 {
                     var new_node = new ActionNode(node_token);
                     nodes[new_node.id] = new_node;

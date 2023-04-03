@@ -9,7 +9,8 @@ from knowledge_graph.graph import KnowledgeGraph
 from knowledge_graph.items import (Instance, Edge)
 from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHypothesis, 
                                    ObjectDuplicateHypothesis, 
-                                   OffscreenObjectHypothesis)
+                                   OffscreenObjectHypothesis,
+                                   ObjectPersistenceHypothesis)
 
 @dataclass
 class Solution():
@@ -107,11 +108,18 @@ class HypothesisEvaluator():
         individual_scores.update(i_scores)
         paired_scores.update(p_scores)
 
-        # Score all ObjectHypotheses
-        i_scores, p_scores = self._predict_object_scores(
+        # Score all OffscreenObjectHypotheses
+        i_scores, p_scores = self._predict_offscreen_object_scores(
             knowledge_graph=knowledge_graph, hypotheses=hypotheses)
         individual_scores.update(i_scores)
         paired_scores.update(p_scores)
+
+        # Score all ObjectPersistenceHypotheses
+        i_scores, p_scores = self._predict_object_persistence_scores(
+            hypotheses=hypotheses)
+        individual_scores.update(i_scores)
+        paired_scores.update(p_scores)
+
         print("Done scoring.")
 
         # Solve the maximum weight independent set problem consisting of these
@@ -188,7 +196,7 @@ class HypothesisEvaluator():
                       hypothesis.target_instance.get_centrality()) / 2
             individual_scores[hypothesis.id] = score
             # If it's premised on any other Hypotheses, give its score a
-            # large negative number and its paired score with an equally large
+            # large negative number and its paired score an equally large
             # positive number to enforce the fact that the premise has to be
             # accepted to accept this Hypothesis.
             for premise in hypothesis.premises.values():
@@ -478,10 +486,10 @@ class HypothesisEvaluator():
         return id_triplets
     # end _find_transitive_property_triplets
 
-    def _predict_object_scores(self, knowledge_graph: KnowledgeGraph, 
+    def _predict_offscreen_object_scores(self, knowledge_graph: KnowledgeGraph, 
                                  hypotheses: dict[int, Hypothesis]):
         """
-        Predicts scores for all of the ObjectHypotheses.
+        Predicts scores for all of the OffscreenObjectHypotheses.
 
         Parameters
         ----------
@@ -524,7 +532,7 @@ class HypothesisEvaluator():
             centrality_factor = hypothesis.obj.get_centrality()
             score *= centrality_factor
             individual_scores[hypothesis.id] = score
-            # Add a paired score for each hypothesized Obect in the same
+            # Add a paired score for each hypothesized Object in the same
             # scene equal to one no_relationship_penalty.
             for scene_obj_hypothesis in scene_obj_hypotheses:
                 score = self.parameters.no_relationship_penalty
@@ -545,9 +553,54 @@ class HypothesisEvaluator():
                 paired_scores[id_pair_1] = score
                 paired_scores[id_pair_2] = score
             # end for ce_hypothesis
+            # If it's premised on any other Hypotheses, give its score a
+            # large negative number and its paired score with the other 
+            # Hypothesis an equally large positive number to enforce the fact 
+            # that the premise has to be accepted to accept this Hypothesis.
+            for premise in hypothesis.premises.values():
+                individual_scores[hypothesis.id] -= const.H_SCORE_OFFSET
+                id_pair_1 = (hypothesis.id, premise.id)
+                id_pair_2 = (premise.id, hypothesis.id)
+                paired_scores[id_pair_1] = const.H_SCORE_OFFSET
+                paired_scores[id_pair_2] = const.H_SCORE_OFFSET
+            # end for
         # end for hypothesis in obj_hypotheses
         return (individual_scores, paired_scores)
-    # end _predict_object_scores
+    # end _predict_offscreen_object_scores
+
+    def _predict_object_persistence_scores(self, hypotheses: dict[int, Hypothesis]):
+        """
+        Predicts scores for all the ObjectPersistenceHypotheses.
+
+        Returns
+        -------
+        individual_scores : dict[int, float]
+            The individual scores for each OffscreenObjectHypothesis, keyed by
+            hypothesis id.
+        paired_scores : dict[tuple[int, int], float]
+            The paired scores for accepting hypotheses together, keyed by
+            pairs of hypothesis ids.
+        """
+        individual_scores = dict()
+        paired_scores = dict()
+        op_hypotheses = [h for h in hypotheses.values()
+                         if type(h) == ObjectPersistenceHypothesis]
+        for hypothesis in op_hypotheses:
+            individual_scores[hypothesis.id] = 0
+            # If it's premised on any other Hypotheses, give its score a
+            # large negative number and its paired score with the other 
+            # Hypothesis an equally large positive number to enforce the fact 
+            # that the premise has to be accepted to accept this Hypothesis.
+            for premise in hypothesis.premises.values():
+                individual_scores[hypothesis.id] -= const.H_SCORE_OFFSET
+                id_pair_1 = (hypothesis.id, premise.id)
+                id_pair_2 = (premise.id, hypothesis.id)
+                paired_scores[id_pair_1] = const.H_SCORE_OFFSET
+                paired_scores[id_pair_2] = const.H_SCORE_OFFSET
+            # end for
+        # end for
+        return individual_scores, paired_scores
+    # end _predict_object_persistence_scores
 
     def _equal_id_pairs(self, pair_1: tuple[int, int], pair_2: tuple[int, int]):
         """

@@ -76,21 +76,27 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
         {
             switch((string)h_token["type"])
             {
-                case "concept_edge":
+                case "ConceptEdgeHypothesis":
                 {
                     var new_h = new ConceptEdgeHypothesis(h_token);
                     hypotheses[new_h.id] = new_h;
                     break;
                 }
-                case "object":
+                case "OffscreenObjectHypothesis":
                 {
                     var new_h = new OffscreenObjectHypothesis(h_token);
                     hypotheses[new_h.id] = new_h;
                     break;
                 }
-                case "object_duplicate":
+                case "ObjectDuplicateHypothesis":
                 {
                     var new_h = new ObjectDuplicateHypothesis(h_token);
+                    hypotheses[new_h.id] = new_h;
+                    break;
+                }
+                case "ObjectPersistenceHypothesis":
+                {
+                    var new_h = new ObjectPersistenceHypothesis(h_token);
                     hypotheses[new_h.id] = new_h;
                     break;
                 }
@@ -147,7 +153,7 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
             // Its ObjectNode references a set of Concept node and a set of Images.
             else if (hypothesis is OffscreenObjectHypothesis)
             {
-                var obj_h = (ObjectHypothesis)hypothesis;
+                var obj_h = (OffscreenObjectHypothesis)hypothesis;
                 obj_h.obj = (ObjectNode)knowledge_graph.nodes[obj_h.object_id];
                 foreach (int ce_h_id in obj_h.concept_edge_hypothesis_ids)
                 {
@@ -171,6 +177,15 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
                 od_h.object_2 = (ObjectNode)knowledge_graph.nodes[od_h.object_2_id];
                 od_h.edge.source = knowledge_graph.nodes[od_h.edge.source_id];
                 od_h.edge.target = knowledge_graph.nodes[od_h.edge.target_id];
+            }
+            // Object persistence hypotheses reference an object node, an
+            // offscreen object hypothesis, and an object duplicate hypothesis.
+            else if (hypothesis is ObjectPersistenceHypothesis)
+            {
+                var op_h = (ObjectPersistenceHypothesis)hypothesis;
+                op_h.object_ = (ObjectNode)knowledge_graph.nodes[op_h.object_id];
+                op_h.offscreen_object_hypothesis = (OffscreenObjectHypothesis)hypotheses[op_h.offscreen_obj_h_id];
+                op_h.object_duplicate_hypothesis = (ObjectDuplicateHypothesis)hypotheses[op_h.object_duplicate_h_id];
             }
         }
         return hypotheses;
