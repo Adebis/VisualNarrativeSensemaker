@@ -24,7 +24,8 @@ from output_handling.sensemaking_data_encoder import SensemakingDataEncoder
 from hypothesis.hypothesis_generation import HypothesisGenerator
 from hypothesis.hypothesis_evaluator import HypothesisEvaluator
 from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHypothesis, 
-                                   ObjectDuplicateHypothesis)
+                                   ObjectDuplicateHypothesis, 
+                                   InstanceHypothesis)
 
 class SenseMaker:
     """
@@ -97,16 +98,23 @@ class SenseMaker:
             solutions = hypothesis_evaluator.evaluate_hypotheses(
                 knowledge_graph=knowledge_graph,
                 hypotheses=hypotheses)
-            all_solutions.append({'parameter_set_name': parameters.name,
+            all_solutions.append({'parameter_set': parameters.id,
                                   'solutions': solutions})
         # end for
         print(f'Done evaluating hypotheses.' + 
               f' Time taken: {timer() - timers["h_eval_start"]}')
         
         print(f'Writing output to json...')
-        output_dict = {'knowledge_graph': knowledge_graph,
-                       'hypotheses': hypotheses,
-                       'solutions': all_solutions}
+
+        # Add hypothetical instances to the knowledge graph before encoding.
+        instance_hs = [h for h in hypotheses.values() 
+                       if type(h) == InstanceHypothesis]
+        for h in instance_hs:
+            knowledge_graph.add_node(h.instance)
+        # end for
+        output_dict = {'sensemaker_data': {'knowledge_graph': knowledge_graph,
+                       'hypotheses': list(hypotheses.values()),
+                       'solutions': all_solutions}}
         json_data = json.dumps(output_dict, cls=SensemakingDataEncoder)
         json_obj = json.loads(json_data)
         # Make the output file name by concatenating the images' ids and

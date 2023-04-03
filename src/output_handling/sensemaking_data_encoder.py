@@ -80,7 +80,7 @@ class SensemakingDataEncoder(json.JSONEncoder):
         """
         Encodes a KnowledgeGraph into a json serializable dictionary.
 
-        Has dictionaries of all CommonSenseNodes, Images, Nodes, and Edges.
+        Has lists of all CommonSenseNodes, Images, Nodes, and Edges.
         """
         kg_dict = dict()
         # First, encode all commonsense_nodes into a top-level dictionaries. 
@@ -89,13 +89,16 @@ class SensemakingDataEncoder(json.JSONEncoder):
         # CommonSenseEdges incident on them. 
         commonsense_nodes = {cs_node.id: cs_node for cs_node in 
                              knowledge_graph.get_commonsense_nodes()}
-        kg_dict['commonsense_nodes'] = commonsense_nodes
+        kg_dict['commonsense_nodes'] = list(commonsense_nodes.values())
         # Encode all the images.
-        kg_dict['images'] = knowledge_graph.images
+        kg_dict['images'] = list(knowledge_graph.images.values())
         # Encode all Nodes
-        kg_dict['nodes'] = knowledge_graph.nodes
+        kg_dict['nodes'] = list(knowledge_graph.nodes.values())
+        #kg_dict['concepts'] = list(knowledge_graph.concepts.values())
+        #kg_dict['objects'] = list(knowledge_graph.objects.values())
+        #kg_dict['actions'] = list(knowledge_graph.actions.values())
         # Encode all edges
-        kg_dict['edges'] = knowledge_graph.edges
+        kg_dict['edges'] = list(knowledge_graph.edges.values())
         return kg_dict
     # end _encode_knowledge_graph
 
@@ -234,13 +237,19 @@ class SensemakingDataEncoder(json.JSONEncoder):
         """
         Encodes an Action node into a json serializable dictionary.
 
+        Adds a 'type' field whose value is 'action'.
+
         subject and object are encoded as the ids of Object nodes. 
+
+        Have to call object 'obj' because object is a reserved term.
         """
         # First, encode it as an Instance.
         node_dict = self._encode_instance(action)
         # Then, add extra information from it being an Action.
-        node_dict.update({'subject': action.subject,
-                          'object': action.object,
+        node_dict.update({'type': 'action',
+                          'subject': action.subject.id,
+                          'obj': (None if action.object is None 
+                                     else action.object.id),
                           'scene_graph_rel': action.scene_graph_rel})
         return node_dict
     # end _encode_action
@@ -274,10 +283,13 @@ class SensemakingDataEncoder(json.JSONEncoder):
         """
         Encodes a piece of ConceptEdgeEvidence into a json serializble dict.
 
+        Adds a 'type' field whose value is 'concept_edge'.
+
         edge is encoded as its Edge id.
         """
         evidence_dict = self._encode_evidence(ce_evidence)
-        evidence_dict.update({'edge': ce_evidence.edge.id})
+        evidence_dict.update({'type': 'concept_edge',
+                              'edge': ce_evidence.edge.id})
         return evidence_dict
     # end _encode_concept_edge_evidence
 
@@ -286,10 +298,13 @@ class SensemakingDataEncoder(json.JSONEncoder):
         """
         Encodes a piece of OtherHypothesisEvidence into a json serializable dict.
 
+        Adds a 'type' field whose value is 'other_hypothesis'.
+
         hypothesis is encoded as the hypothesis' id.
         """
         evidence_dict = self._encode_evidence(oh_evidence)
-        evidence_dict.update({'hypothesis': oh_evidence.hypothesis.id})
+        evidence_dict.update({'type': 'other_hypothesis',
+                              'hypothesis': oh_evidence.hypothesis.id})
         return evidence_dict
     # end _encode_other_hypothesis_evidence
 
@@ -299,10 +314,13 @@ class SensemakingDataEncoder(json.JSONEncoder):
         Encodes a piece of VisualSimilarityEvidence into a json serializable
         dict.
 
+        Adds a 'type' field whose value is 'visual_similarity'
+
         object_1 and object_2 are encoded as Node ids.
         """
         evidence_dict = self._encode_evidence(vs_evidence)
-        evidence_dict.update({'object_1': vs_evidence.object_1.id,
+        evidence_dict.update({'type': 'visual_similarity',
+                              'object_1': vs_evidence.object_1.id,
                               'object_2': vs_evidence.object_2.id})
         return evidence_dict
     # end _encode_visual_similarity_evidence
@@ -313,10 +331,13 @@ class SensemakingDataEncoder(json.JSONEncoder):
         Encodes a piece of AttributeSimilarityEvidence into a json serializable
         dict.
 
+        Adds a 'type' field whose value is 'attribute_similarity'.
+
         object_1 and object_2 are encoded as Node ids.
         """
         evidence_dict = self._encode_evidence(as_evidence)
-        evidence_dict.update({'object_1': as_evidence.object_1.id,
+        evidence_dict.update({'type': 'attribute_similarity',
+                              'object_1': as_evidence.object_1.id,
                               'object_2': as_evidence.object_2.id})
         return evidence_dict
     # end _encode_attribute_similarity_evidence
@@ -339,12 +360,15 @@ class SensemakingDataEncoder(json.JSONEncoder):
         """
         Encodes a ConceptEdgeHypothesis into a json serializable dict.
 
+        Adds a 'type' field with 'concept_edge' as its value.
+
         source_instance and target_instance are encoded as Node ids.
 
         edge is encoded as an Edge id.
         """
         h_dict = self._encode_hypothesis(ce_hypothesis)
-        h_dict.update({'source_instance': ce_hypothesis.source_instance.id,
+        h_dict.update({'type': 'concept_edge',
+                       'source_instance': ce_hypothesis.source_instance.id,
                        'target_instance': ce_hypothesis.target_instance.id,
                        'edge': ce_hypothesis.edge.id})
         return h_dict
@@ -354,13 +378,16 @@ class SensemakingDataEncoder(json.JSONEncoder):
         """
         Encodes an InstanceHypothesis into a json serializable dict.
 
-        instance is a hypothesized Instance which does not exist in the 
-        knowledge graph, so the whole Instance is encoded in the hypothesis.
+        Adds a 'type' field with 'instance' as its value.
+
+        instance is a hypothesized Instance which should be in the 
+        KnowledgeGraph. It is encoded as its id.
 
         concept_edge_hypotheses is encoded as a list of Hypothesis id.
         """
         h_dict = self._encode_hypothesis(i_hypothesis)
-        h_dict.update({'instance': i_hypothesis.instance,
+        h_dict.update({'type': 'instance',
+                       'instance': i_hypothesis.instance.id,
                        'concept_edge_hypotheses': [h.id for h in 
                                         i_hypothesis.concept_edge_hypotheses]})
         return h_dict
@@ -371,13 +398,16 @@ class SensemakingDataEncoder(json.JSONEncoder):
         """
         Encodes an ObjectDuplicateHypothesis into a json serializable dict.
 
+        Adds a 'type' field with 'object_duplicate' as its value.
+
         object_1 and object_2 are encoded as their Node ids.
 
         edge is a hypothesized Edge which does not exist in the knowledge graph, 
         so the whole Edge is encoded in the hypothesis.
         """
         h_dict = self._encode_hypothesis(od_hypothesis)
-        h_dict.update({'object_1': od_hypothesis.object_1.id,
+        h_dict.update({'type': 'object_duplicate',
+                       'object_1': od_hypothesis.object_1.id,
                        'object_2': od_hypothesis.object_2.id,
                        'edge': od_hypothesis.edge})
         return h_dict
@@ -389,7 +419,8 @@ class SensemakingDataEncoder(json.JSONEncoder):
 
         accepted_hypotheses is encoded as a list of Hypothesis ids.
         """
-        return {'parameters': solution.parameters,
+        return {'id': solution.id,
+                'parameters': solution.parameters,
                 'accepted_hypotheses': [h_id for h_id in 
                                         solution.accepted_hypotheses.keys()],
                 'energy': solution.energy}

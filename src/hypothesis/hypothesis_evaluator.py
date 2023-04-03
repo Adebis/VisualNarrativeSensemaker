@@ -18,6 +18,8 @@ class Solution():
 
     Attributes:
     -----------
+    id : int
+        A unique integer identifier. 
     parameters : ParameterSet
         The parameter set used to create this solution.
     accepted_hypotheses : dict[int, Hypothesis]
@@ -28,9 +30,18 @@ class Solution():
         set is better.
     """
 
+    id: int = field(init=False)
     parameters: ParameterSet
     accepted_hypotheses: dict[int, Hypothesis]
     energy: float
+
+    _next_id = 0
+    def __post_init__(self):
+        # Assign the id, then increment the class ID counter so the next
+        # Solution gets a unique id. 
+        self.id = Solution._next_id
+        Solution._next_id += 1
+    # end __post_init__
 # end class Solution
 
 class HypothesisEvaluator():
