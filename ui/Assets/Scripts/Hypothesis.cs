@@ -110,7 +110,7 @@ public class ConceptEdgeHypothesis : Hypothesis
     }
 }
 
-public class ObjectHypothesis : Hypothesis
+public class OffscreenObjectHypothesis : Hypothesis
 {
     public int object_id;
     public ObjectNode obj;
@@ -118,7 +118,7 @@ public class ObjectHypothesis : Hypothesis
     public Dictionary<int, ConceptEdgeHypothesis> concept_edge_hypotheses;
 
 
-    public ObjectHypothesis(JToken token) : base(token)
+    public OffscreenObjectHypothesis(JToken token) : base(token)
     {
         this.object_id = (int)token["object"];
         this.concept_edge_hypothesis_ids = new List<int>();

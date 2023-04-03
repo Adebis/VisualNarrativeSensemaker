@@ -9,7 +9,7 @@ from knowledge_graph.graph import KnowledgeGraph
 from knowledge_graph.items import (Instance, Edge)
 from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHypothesis, 
                                    ObjectDuplicateHypothesis, 
-                                   ObjectHypothesis)
+                                   OffscreenObjectHypothesis)
 
 @dataclass
 class Solution():
@@ -493,7 +493,7 @@ class HypothesisEvaluator():
         Returns
         -------
         individual_scores : dict[int, float]
-            The individual scores for each ObjectHypothesis, keyed by
+            The individual scores for each OffscreenObjectHypothesis, keyed by
             hypothesis id.
         paired_scores : dict[tuple[int, int], float]
             The paired scores for accepting hypotheses together, keyed by
@@ -503,7 +503,7 @@ class HypothesisEvaluator():
         paired_scores = dict()
         # Get all the ObjectHypotheses.
         obj_hypotheses = [h for h in hypotheses.values()
-                        if type(h) == ObjectHypothesis]
+                        if type(h) == OffscreenObjectHypothesis]
         for hypothesis in obj_hypotheses:
             # Get the image for the scene this hypothesized Instance is in.
             image = hypothesis.obj.get_image()
@@ -653,7 +653,7 @@ class HypothesisEvaluator():
         # as well as the strength of the edge for each ConceptEdgeHypothesis
         # that was accepted for it. 
         i_hypotheses = [h for h in hypotheses.values()
-                        if type(h) == ObjectHypothesis]
+                        if type(h) == OffscreenObjectHypothesis]
         for hypothesis in i_hypotheses:
             score = 0
             image = hypothesis.obj.get_image()

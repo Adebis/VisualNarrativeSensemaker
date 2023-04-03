@@ -15,7 +15,7 @@ from hypothesis.hypothesis import (Evidence, ConceptEdgeEvidence,
                                    AttributeSimilarityEvidence,
                                    Hypothesis,
                                    ConceptEdgeHypothesis,
-                                   ObjectHypothesis,
+                                   OffscreenObjectHypothesis,
                                    ObjectDuplicateHypothesis)
 from hypothesis.hypothesis_evaluator import Solution
 
@@ -59,7 +59,7 @@ class SensemakingDataEncoder(json.JSONEncoder):
             return self._encode_attribute_similarity_evidence(o)
         elif isinstance(o, ConceptEdgeHypothesis):
             return self._encode_concept_edge_hypothesis(o)
-        elif isinstance(o, ObjectHypothesis):
+        elif isinstance(o, OffscreenObjectHypothesis):
             return self._encode_object_hypothesis(o)
         elif isinstance(o, ObjectDuplicateHypothesis):
             return self._encode_object_duplicate_hypothesis(o)
@@ -374,9 +374,9 @@ class SensemakingDataEncoder(json.JSONEncoder):
         return h_dict
     # end _encode_concept_edge_hypothesis
 
-    def _encode_object_hypothesis(self, obj_hypothesis: ObjectHypothesis):
+    def _encode_object_hypothesis(self, obj_hypothesis: OffscreenObjectHypothesis):
         """
-        Encodes an ObjectHypothesis into a json serializable dict.
+        Encodes an OffscreenObjectHypothesis into a json serializable dict.
 
         Adds a 'type' field with 'object' as its value.
 

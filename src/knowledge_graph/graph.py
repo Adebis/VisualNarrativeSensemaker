@@ -41,6 +41,12 @@ class KnowledgeGraph:
     actions : dict[int, Action]
         Dictionary of the Action nodes in this graph, keyed by node id.
         Subset of overall nodes dictionary.
+    hypothesized_nodes : dict[int, Node]
+        Dictionary of the hypothesized Nodes made for this graph, keyed by
+        node id. 
+    hypothesized_objects : dict[int, Object]
+        Dictionary of the hypothesized Object nodes made for this graph, keyed
+        by node id. Subset of the overall hypothesized_nodes dictionary. 
     edges : dict[int, Edge]
         Dictionary of the Edges in this graph, keyed by edge id.
     images : dict[int, Image]
@@ -51,6 +57,7 @@ class KnowledgeGraph:
     concepts: dict[int, Concept]
     objects: dict[int, Object]
     actions: dict[int, Action]
+    hypothesized_objects: dict[int, Object]
     edges: dict[int, Edge]
     images: dict[int, Image]
 
@@ -63,6 +70,8 @@ class KnowledgeGraph:
         self.concepts = dict()
         self.objects = dict()
         self.actions = dict()
+        self.hypothesized_nodes = dict()
+        self.hypothesized_objects = dict()
         self.edges = dict()
         self.images = dict()
         # A concept net querier for the knowledge graph to use to make
@@ -79,13 +88,17 @@ class KnowledgeGraph:
         """
         # For nodes, check if the node dictionary has the given node.
         if isinstance(item, Node):
-            if item in self.nodes.values():
+            if item.id in self.nodes:
+                return True
+            # If not in the regular nodes dictionary, check the hypothesized
+            # objects dictionary.
+            elif item.id in self.hypothesized_objects:
                 return True
             else:
                 return False
         # For edges, check if the edge dictionary has the given edge.
         elif isinstance(item, Edge):
-            if item in self.edges.values():
+            if item.id in self.edges:
                 return True
             else:
                 return False
@@ -111,6 +124,7 @@ class KnowledgeGraph:
         self.concepts.update(knowledge_graph.concepts)
         self.objects.update(knowledge_graph.objects)
         self.actions.update(knowledge_graph.actions)
+        self.hypothesized_objects.update(knowledge_graph.hypothesized_objects)
         self.edges.update(knowledge_graph.edges)
         # Merge the concept membership maps.
         cm_map = knowledge_graph._concept_membership_map
@@ -419,6 +433,9 @@ class KnowledgeGraph:
 
         If the Node is an Instance and has an Image that is not present in this
         knowledge graph's set of images, also updates that. 
+
+        If the Node is an Instance, adds all the Instance's Concepts to this
+        knowledge graph.
         
         Prevents duplicate entries.
         """
@@ -430,6 +447,9 @@ class KnowledgeGraph:
         if type(node) == Concept:
             self.concepts[node.id] = node
         elif issubclass(type(node), Instance):
+            # Add all the Instance's Concepts to this knowledge graph.
+            for concept in node.concepts.values():
+                self.add_node(concept)
             # Take all the images this node Instance is grounded in. 
             self.images.update(node.images)
             if type(node) == Object:

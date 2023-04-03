@@ -10,8 +10,9 @@ import constants as const
 from constants import ConceptType
 
 from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHypothesis, 
-                                   ObjectHypothesis, 
+                                   OffscreenObjectHypothesis, 
                                    ObjectDuplicateHypothesis,
+                                   OffscreenPersistenceHypothesis,
                                    ActionHypothesis, Evidence, 
                                    ConceptEdgeEvidence)
 
@@ -140,75 +141,23 @@ class HypothesisGenerator:
         concept_edge_hypotheses = list()
         object_duplicate_hypotheses = list()
 
-        for current_object in knowledge_graph.objects.values():
+        all_new_hypotheses = self._make_offscreen_persistence_hypotheses(
+            knowledge_graph=knowledge_graph)
+        
+        # Get all observed and hypothesized Objects.
+        all_objects = list(knowledge_graph.objects.values())
+        all_objects.extend([h.obj for h in all_new_hypotheses
+                            if type(h) == OffscreenPersistenceHypothesis])
+
+        for current_object in all_objects.values():
             # Get all the images the Object is NOT in.
             absent_images = list()
             for image in knowledge_graph.images.values():
                 if not image.id in current_object.images:
                     absent_images.append(image)
             # end for
-            # For each Image the Object is not in, make an ObjectHypothesis 
-            # that an Object with the current Object's Concepts, appearance, and
-            # attributes is in that Image. 
-            for image in absent_images:
-                # Make the hypothesized Object.
-                # Make sure it has the original Object's attributes and
-                # appearance.
-                new_object = Object(label=current_object.label,
-                                    image=image,
-                                    attributes=current_object.attributes,
-                                    appearance=current_object.appearance,
-                                    concepts=current_object.concepts,
-                                    hypothesized=True)
-                # Give the hypothesized Object the focal score of the Object 
-                # it's copying.
-                new_object.focal_score = current_object.focal_score
-                # Make ConceptEdgeHypotheses to every observed Instance in the
-                # same scene.
-                evidence_hypotheses = list()
-                for scene_instance in knowledge_graph.get_scene_instances(image):
-                    evidence_hypotheses.extend(
-                        self._make_concept_edge_hypotheses(
-                            instance_1=new_object, 
-                            instance_2=scene_instance))
-                # end for
-                # Make ConceptEdgeHypotheses to every other hypothesized
-                # Object in the same scene.
-                scene_hypotheses = [h for h in object_hypotheses
-                                    if h.obj.get_image() == image]
-                for existing_hypothesis in scene_hypotheses:
-                    new_hypotheses = self._make_concept_edge_hypotheses(
-                        instance_1=new_object, 
-                        instance_2=existing_hypothesis.obj)
-                    # Make the existing Object hypothesis a premise for this
-                    # concept edge hypothesis, too, since it wouldn't exist
-                    # without the existing Object hypothesis.
-                    for new_hypothesis in new_hypotheses:
-                        new_hypothesis.add_premise(existing_hypothesis)
-                    evidence_hypotheses.extend(new_hypotheses)
-                # end for
-                # Make the InstanceHypothesis using these ConceptEdgeHypotheses
-                # as evidence.
-                object_hypothesis = ObjectHypothesis(
-                    obj=new_object, 
-                    concept_edge_hypotheses=evidence_hypotheses)
-                # Make an ObjectDuplicateHypothesis between the original Object
-                # and the hypothesized Object.
-                object_duplicate_hypothesis = ObjectDuplicateHypothesis(
-                    current_object, new_object)
-                # Premise the ObjectDuplicateHypothesis on the 
-                # ObjectHypothesis, since it wouldn't exist without the new 
-                # Object being hypothesized.
-                object_duplicate_hypothesis.add_premise(object_hypothesis)
-                # Premise the ObjectHypothesis on the ObjectDuplicateHypothesis,
-                # since if it isn't a duplicate of the original Object it has
-                # no reason to exist.
-                object_hypothesis.add_premise(object_duplicate_hypothesis)
-                # Make sure to store the new Hypotheses
-                object_hypotheses.append(object_hypothesis)
-                concept_edge_hypotheses.extend(evidence_hypotheses)
-                object_duplicate_hypotheses.append(object_duplicate_hypothesis)
 
+            for image in absent_images:
                 # Go through each observed Object in this image and make an
                 # ObjectDuplicateHypothesis with any of them whose Concepts
                 # overlap with this current Object.
@@ -229,8 +178,10 @@ class HypothesisGenerator:
                         # end if
                     # end for
                 # end for scene_instance in scene_instances
+
             # end for image in absent_images
-        # end for current_object in knowledge_graph.objects.values()
+
+        # end for current_object in all_objects.values()
 
         # Returns both the new ObjectHypotheses and the new
         # ConceptEdgeHypotheses.
@@ -240,6 +191,104 @@ class HypothesisGenerator:
         all_new_hypotheses.extend(object_duplicate_hypotheses)
         return all_new_hypotheses
     # end _make_hypotheses_for_continuity
+
+    def _make_offscreen_persistence_hypotheses(self, 
+                                               knowledge_graph: KnowledgeGraph):
+        """
+        Generates OffscreenPersistenceHypotheses for all observed Objects
+        in the knowledge graph.
+
+        Returns a list of all the new Hypotheses that were generated.
+        """
+        new_hypotheses = list()
+        # Go through every observed Object in the knowledge graph.
+        for current_object in knowledge_graph.objects.values():
+            # Get all the images the Object is NOT in.
+            absent_images = list()
+            for image in knowledge_graph.images.values():
+                if not image.id in current_object.images:
+                    absent_images.append(image)
+            # end for
+            # For each Image the Object is not in, make an OffscreenObjectHypothesis 
+            # that an Object with the current Object's Concepts, appearance, and
+            # attributes is in that Image. 
+            for image in absent_images:
+                # Make the hypothesized Object.
+                # Make sure it has the original Object's attributes and
+                # appearance.
+                new_object = Object(label=current_object.label,
+                                    image=image,
+                                    attributes=current_object.attributes,
+                                    appearance=current_object.appearance,
+                                    concepts=current_object.concepts,
+                                    hypothesized=True)
+                # Give the hypothesized Object the focal score of the Object 
+                # it's copying.
+                new_object.focal_score = current_object.focal_score
+                # Make ConceptEdgeHypotheses to every observed Instance in the
+                # same scene.
+                concept_edge_hypotheses = list()
+                for scene_instance in knowledge_graph.get_scene_instances(image):
+                    concept_edge_hypotheses.extend(
+                        self._make_concept_edge_hypotheses(
+                            instance_1=new_object, 
+                            instance_2=scene_instance))
+                # end for
+                # Make ConceptEdgeHypotheses to every other hypothesized
+                # Object in the same scene.
+                obj_hypotheses = [h for h in new_hypotheses 
+                                  if type(h) == OffscreenObjectHypothesis
+                                  and h.obj.get_image() == image]
+                for existing_hypothesis in obj_hypotheses:
+                    new_hypotheses = self._make_concept_edge_hypotheses(
+                        instance_1=new_object, 
+                        instance_2=existing_hypothesis.obj)
+                    # Make the existing Object hypothesis a premise for this
+                    # concept edge hypothesis, too, since it wouldn't exist
+                    # without the existing Object hypothesis.
+                    for new_hypothesis in new_hypotheses:
+                        new_hypothesis.add_premise(existing_hypothesis)
+                    concept_edge_hypotheses.extend(new_hypotheses)
+                # end for
+                # Make the OffscreenObjectHypothesis using these 
+                # ConceptEdgeHypotheses as evidence.
+                offscreen_object_hypothesis = OffscreenObjectHypothesis(
+                    obj=new_object, 
+                    concept_edge_hypotheses=concept_edge_hypotheses)
+                # Make an ObjectDuplicateHypothesis between the original Object
+                # and the hypothesized Object.
+                object_duplicate_hypothesis = ObjectDuplicateHypothesis(
+                    current_object, new_object)
+                # Premise the ObjectDuplicateHypothesis on the 
+                # OffscreenObjectHypothesis, since it wouldn't exist without the 
+                # new Object being hypothesized.
+                object_duplicate_hypothesis.add_premise(offscreen_object_hypothesis)
+                # Premise the OffscreenObjectHypothesis on the 
+                # ObjectDuplicateHypothesis, since if it isn't a duplicate of 
+                # the original Object it has no reason to exist.
+                offscreen_object_hypothesis.add_premise(object_duplicate_hypothesis)
+
+                # Make the OffscreenPersistenceHypothesis based on this
+                # OffscreenObjectHypothesis and ObjectDuplicateHypothesis.
+                offscreen_persistence_hypothesis = OffscreenPersistenceHypothesis(
+                    offscreen_object_hypothesis=offscreen_object_hypothesis,
+                    object_dulpicate_hypothesis=object_duplicate_hypothesis)
+                
+                # Premise both the object duplicate hypothesis and the offscreen
+                # object hypothesis on the offscreen persistence hypothesis, as
+                # they have no reason for existing without it.
+                offscreen_object_hypothesis.add_premise(offscreen_persistence_hypothesis)
+                object_duplicate_hypothesis.add_premise(offscreen_persistence_hypothesis)
+
+                # Make sure to store the new Hypotheses
+                new_hypotheses.append(offscreen_object_hypothesis)
+                new_hypotheses.extend(concept_edge_hypotheses)
+                new_hypotheses.append(object_duplicate_hypothesis)
+                new_hypotheses.extend(offscreen_persistence_hypothesis)
+            # end for image in absent_images
+        # end for current_object in knowledge_graph.objects.values()
+        return new_hypotheses
+    # end _make_offscreen_persistence_hypotheses
 
 
     # TODO: Delete this?

@@ -84,7 +84,7 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
                 }
                 case "object":
                 {
-                    var new_h = new ObjectHypothesis(h_token);
+                    var new_h = new OffscreenObjectHypothesis(h_token);
                     hypotheses[new_h.id] = new_h;
                     break;
                 }
@@ -145,7 +145,7 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
             // Object hypotheses reference a set of concept edge hypotheses
             // and an ObjectNode.
             // Its ObjectNode references a set of Concept node and a set of Images.
-            else if (hypothesis is ObjectHypothesis)
+            else if (hypothesis is OffscreenObjectHypothesis)
             {
                 var obj_h = (ObjectHypothesis)hypothesis;
                 obj_h.obj = (ObjectNode)knowledge_graph.nodes[obj_h.object_id];
