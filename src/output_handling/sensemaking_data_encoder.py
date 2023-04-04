@@ -17,7 +17,7 @@ from hypothesis.hypothesis import (Evidence, ConceptEdgeEvidence,
                                    ConceptEdgeHyp,
                                    NewObjectHyp,
                                    SameObjectHyp,
-                                   ObjectPersistenceHypothesis)
+                                   PersistObjectHyp)
 from hypothesis.hypothesis_evaluator import Solution
 
 class SensemakingDataEncoder(json.JSONEncoder):
@@ -64,8 +64,8 @@ class SensemakingDataEncoder(json.JSONEncoder):
             return self._encode_new_object_hyp(o)
         elif isinstance(o, SameObjectHyp):
             return self._encode_same_object_hyp(o)
-        elif isinstance(o, ObjectPersistenceHypothesis):
-            return self._encode_object_persistence_hypothesis(o)
+        elif isinstance(o, PersistObjectHyp):
+            return self._encode_persist_object_hyp(o)
         elif isinstance(o, Solution):
             return self._encode_solution(o)
         # Some custom dataclasses can be turned into their dictionary forms and 
@@ -394,22 +394,22 @@ class SensemakingDataEncoder(json.JSONEncoder):
         return h_dict
     # end _encode_same_object_hyp
 
-    def _encode_object_persistence_hypothesis(self, 
-                                    op_hypothesis: ObjectPersistenceHypothesis):
+    def _encode_persist_object_hyp(self, 
+                                    persist_object_hyp: PersistObjectHyp):
         """
-        Encodes an ObjectPersistenceHypothesis into a json serializable dict.
+        Encodes a PersistObjectHyp into a json serializable dict.
 
         object_ is encoded as its Node id.
 
         new_object_hyp and same_object_hyp are
         encoded as their ids.
         """
-        h_dict = self._encode_hypothesis(op_hypothesis)
-        h_dict.update({'object_': op_hypothesis.object_.id,
-            'new_object_hyp': op_hypothesis.new_object_hyp.id,
-            'same_object_hyp': op_hypothesis.object_dulpicate_hypothesis.id})
+        h_dict = self._encode_hypothesis(persist_object_hyp)
+        h_dict.update({'object_': persist_object_hyp.object_.id,
+            'new_object_hyp': persist_object_hyp.new_object_hyp.id,
+            'same_object_hyp': persist_object_hyp.object_dulpicate_hypothesis.id})
         return h_dict
-    # end _encode_object_persistence_hypothesis
+    # end _encode_persist_object_hyp
 
     def _encode_solution(self, solution: Solution):
         """

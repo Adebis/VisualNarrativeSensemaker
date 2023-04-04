@@ -94,9 +94,9 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
                     hypotheses[new_h.id] = new_h;
                     break;
                 }
-                case "ObjectPersistenceHypothesis":
+                case "PersistObjectHyp":
                 {
-                    var new_h = new ObjectPersistenceHypothesis(h_token);
+                    var new_h = new PersistObjectHyp(h_token);
                     hypotheses[new_h.id] = new_h;
                     break;
                 }
@@ -180,9 +180,9 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
             }
             // Object persistence hypotheses reference an object node, an
             // offscreen object hypothesis, and an object duplicate hypothesis.
-            else if (hypothesis is ObjectPersistenceHypothesis)
+            else if (hypothesis is PersistObjectHyp)
             {
-                var op_h = (ObjectPersistenceHypothesis)hypothesis;
+                var op_h = (PersistObjectHyp)hypothesis;
                 op_h.object_ = (ObjectNode)knowledge_graph.nodes[op_h.object_id];
                 op_h.new_object_hyp = (NewObjectHyp)hypotheses[op_h.offscreen_obj_h_id];
                 op_h.same_object_hyp = (SameObjectHyp)hypotheses[op_h.same_object_h_id];

@@ -12,7 +12,7 @@ from constants import ConceptType
 from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHyp, 
                                    NewObjectHyp, 
                                    SameObjectHyp,
-                                   ObjectPersistenceHypothesis,
+                                   PersistObjectHyp,
                                    ActionHypothesis, Evidence, 
                                    ConceptEdgeEvidence)
 
@@ -137,13 +137,13 @@ class HypothesisGenerator:
 
         Returns a list of generated Hypotheses.
         """
-        all_new_hypotheses = self._hypothesize_object_persistence(
+        all_new_hypotheses = self._hypothesize_persist_object(
             knowledge_graph=knowledge_graph)
         
         # Get all observed and hypothesized Objects.
         all_objects = list(knowledge_graph.objects.values())
         all_objects.extend([h.object_ for h in all_new_hypotheses
-                            if type(h) == ObjectPersistenceHypothesis])
+                            if type(h) == PersistObjectHyp])
 
         for current_object in all_objects:
             # Get all the images the Object is NOT in.
@@ -182,9 +182,9 @@ class HypothesisGenerator:
         return all_new_hypotheses
     # end _hypothesize_for_continuity
 
-    def _hypothesize_object_persistence(self, knowledge_graph: KnowledgeGraph):
+    def _hypothesize_persist_object(self, knowledge_graph: KnowledgeGraph):
         """
-        Generates ObjectPersistenceHypotheses for all observed Objects
+        Generates PersistObjectHyps for all observed Objects
         in the knowledge graph.
 
         Returns a list of all the new Hypotheses that were generated.
@@ -257,9 +257,9 @@ class HypothesisGenerator:
                 # the original Object it has no reason to exist.
                 new_object_hyp.add_premise(same_object_hyp)
 
-                # Make the ObjectPersistenceHypothesis based on this
+                # Make the PersistObjectHyp based on this
                 # NewObjectHyp and SameObjectHyp.
-                object_persistence_hypothesis = ObjectPersistenceHypothesis(
+                persist_object_hyp = PersistObjectHyp(
                     object_ = new_object,
                     new_object_hyp=new_object_hyp,
                     object_dulpicate_hypothesis=same_object_hyp)
@@ -267,18 +267,18 @@ class HypothesisGenerator:
                 # Premise both the object duplicate hypothesis and the offscreen
                 # object hypothesis on the offscreen persistence hypothesis, as
                 # they have no reason for existing without it.
-                new_object_hyp.add_premise(object_persistence_hypothesis)
-                same_object_hyp.add_premise(object_persistence_hypothesis)
+                new_object_hyp.add_premise(persist_object_hyp)
+                same_object_hyp.add_premise(persist_object_hyp)
 
                 # Make sure to store the new Hypotheses
                 new_hypotheses.append(new_object_hyp)
                 new_hypotheses.extend(concept_edge_hyps)
                 new_hypotheses.append(same_object_hyp)
-                new_hypotheses.append(object_persistence_hypothesis)
+                new_hypotheses.append(persist_object_hyp)
             # end for image in absent_images
         # end for current_object in knowledge_graph.objects.values()
         return new_hypotheses
-    # end _hypothesize_object_persistence
+    # end _hypothesize_persist_object
 
 
     # TODO: Delete this?

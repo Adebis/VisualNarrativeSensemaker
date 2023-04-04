@@ -10,7 +10,7 @@ from knowledge_graph.items import (Instance, Edge)
 from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHyp, 
                                    SameObjectHyp, 
                                    NewObjectHyp,
-                                   ObjectPersistenceHypothesis)
+                                   PersistObjectHyp)
 
 @dataclass
 class Solution():
@@ -114,8 +114,8 @@ class HypothesisEvaluator():
         individual_scores.update(i_scores)
         paired_scores.update(p_scores)
 
-        # Score all ObjectPersistenceHypotheses
-        i_scores, p_scores = self._predict_object_persistence_scores(
+        # Score all PersistObjectHyps
+        i_scores, p_scores = self._predict_persist_object_scores(
             hypotheses=hypotheses)
         individual_scores.update(i_scores)
         paired_scores.update(p_scores)
@@ -568,9 +568,9 @@ class HypothesisEvaluator():
         return (individual_scores, paired_scores)
     # end _predict_offscreen_object_scores
 
-    def _predict_object_persistence_scores(self, hypotheses: dict[int, Hypothesis]):
+    def _predict_persist_object_scores(self, hypotheses: dict[int, Hypothesis]):
         """
-        Predicts scores for all the ObjectPersistenceHypotheses.
+        Predicts scores for all the PersistObjectHyps.
 
         Returns
         -------
@@ -583,9 +583,9 @@ class HypothesisEvaluator():
         """
         individual_scores = dict()
         paired_scores = dict()
-        op_hypotheses = [h for h in hypotheses.values()
-                         if type(h) == ObjectPersistenceHypothesis]
-        for hypothesis in op_hypotheses:
+        persist_object_hyps = [h for h in hypotheses.values()
+                         if type(h) == PersistObjectHyp]
+        for hypothesis in persist_object_hyps:
             individual_scores[hypothesis.id] = 0
             # If it's premised on any other Hypotheses, give its score a
             # large negative number and its paired score with the other 
@@ -600,7 +600,7 @@ class HypothesisEvaluator():
             # end for
         # end for
         return individual_scores, paired_scores
-    # end _predict_object_persistence_scores
+    # end _predict_persist_object_scores
 
     def _equal_id_pairs(self, pair_1: tuple[int, int], pair_2: tuple[int, int]):
         """

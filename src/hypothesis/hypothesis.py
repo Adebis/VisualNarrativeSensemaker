@@ -474,7 +474,7 @@ class SameObjectHyp(Hypothesis):
 
 # end class SameObjectHyp
 
-class ObjectPersistenceHypothesis(Hypothesis):
+class PersistObjectHyp(Hypothesis):
     """
     A hypothesis that an Object in one image persists into another image
     as an off-screen Object. 
@@ -528,7 +528,7 @@ class ObjectPersistenceHypothesis(Hypothesis):
         self.score = score
         return score
     # end calculate_score
-# end ObjectPersistenceHypothesis
+# end PersistObjectHyp
 
 
 

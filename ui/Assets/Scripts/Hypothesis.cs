@@ -147,7 +147,7 @@ public class SameObjectHyp : Hypothesis
     }
 }
 
-public class ObjectPersistenceHypothesis : Hypothesis
+public class PersistObjectHyp : Hypothesis
 {
     public int object_id;
     public ObjectNode object_;
@@ -156,7 +156,7 @@ public class ObjectPersistenceHypothesis : Hypothesis
     public int same_object_h_id;
     public SameObjectHyp same_object_hyp;
 
-    public ObjectPersistenceHypothesis(JToken token) : base(token)
+    public PersistObjectHyp(JToken token) : base(token)
     {
         this.object_id = (int)token["object_"];
         this.offscreen_obj_h_id = (int)token["new_object_hyp"];
