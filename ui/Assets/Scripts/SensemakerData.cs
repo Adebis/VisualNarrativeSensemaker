@@ -88,9 +88,9 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
                     hypotheses[new_h.id] = new_h;
                     break;
                 }
-                case "ObjectDuplicateHypothesis":
+                case "SameObjectHyp":
                 {
-                    var new_h = new ObjectDuplicateHypothesis(h_token);
+                    var new_h = new SameObjectHyp(h_token);
                     hypotheses[new_h.id] = new_h;
                     break;
                 }
@@ -170,9 +170,9 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
             }
             // Object duplicate hypotheses reference two ObjectNodes.
             // Its Edge references two Nodes.
-            else if (hypothesis is ObjectDuplicateHypothesis)
+            else if (hypothesis is SameObjectHyp)
             {
-                var od_h = (ObjectDuplicateHypothesis)hypothesis;
+                var od_h = (SameObjectHyp)hypothesis;
                 od_h.object_1 = (ObjectNode)knowledge_graph.nodes[od_h.object_1_id];
                 od_h.object_2 = (ObjectNode)knowledge_graph.nodes[od_h.object_2_id];
                 od_h.edge.source = knowledge_graph.nodes[od_h.edge.source_id];
@@ -185,7 +185,7 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
                 var op_h = (ObjectPersistenceHypothesis)hypothesis;
                 op_h.object_ = (ObjectNode)knowledge_graph.nodes[op_h.object_id];
                 op_h.new_object_hyp = (NewObjectHyp)hypotheses[op_h.offscreen_obj_h_id];
-                op_h.object_duplicate_hypothesis = (ObjectDuplicateHypothesis)hypotheses[op_h.object_duplicate_h_id];
+                op_h.same_object_hyp = (SameObjectHyp)hypotheses[op_h.same_object_h_id];
             }
         }
         return hypotheses;

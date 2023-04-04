@@ -8,7 +8,7 @@ from parameters import ParameterSet
 from knowledge_graph.graph import KnowledgeGraph
 from knowledge_graph.items import (Instance, Edge)
 from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHyp, 
-                                   ObjectDuplicateHypothesis, 
+                                   SameObjectHyp, 
                                    NewObjectHyp,
                                    ObjectPersistenceHypothesis)
 
@@ -101,8 +101,8 @@ class HypothesisEvaluator():
         individual_scores.update(i_scores)
         paired_scores.update(p_scores)
 
-        # Score all ObjectDuplicateHypotheses
-        i_scores, p_scores, id_triplets = self._predict_object_duplicate_scores(
+        # Score all SameObjectHyps
+        i_scores, p_scores, id_triplets = self._predict_same_object_scores(
             hypotheses=hypotheses,
             paired_scores=paired_scores)
         individual_scores.update(i_scores)
@@ -210,11 +210,11 @@ class HypothesisEvaluator():
         return (individual_scores, paired_scores)
     # end _predict_concept_edge_scores
 
-    def _predict_object_duplicate_scores(self, 
+    def _predict_same_object_scores(self, 
         hypotheses: dict[int, Hypothesis], 
         paired_scores: dict[tuple[int, int], float]):
         """
-        Predict scores for all of the ObjectDuplicateHypotheses.
+        Predict scores for all of the SameObjectHyps.
         
         Parameters
         ----------
@@ -227,14 +227,14 @@ class HypothesisEvaluator():
         Returns
         -------
         individual_scores : dict[int, float]
-            The individual scores for each ObjectDuplicateHypothesis, keyed by
+            The individual scores for each SameObjectHyp, keyed by
             hypothesis id.
         new_paired_scores : dict[tuple[int, int], float]
             The paired scores for accepting hypotheses together, keyed by
             pairs of hypothesis ids.
         id_triplets : dict[int, tuple[int, int, int]]
             All of the triplets of ids for the transitive property triplets 
-            found between ObjectDuplicateHypotheses, keyed by the ID they were 
+            found between SameObjectHyps, keyed by the ID they were 
             assigned.
 
             Their key ids match their id in the new_paired_scores dictionary,
@@ -242,10 +242,10 @@ class HypothesisEvaluator():
         """
         individual_scores = dict()
         new_paired_scores = dict()
-        # Get all the ObjectDuplicateHypotheses
-        od_hypotheses = [h for h in hypotheses.values()
-                         if type(h) == ObjectDuplicateHypothesis]
-        for hypothesis in od_hypotheses:
+        # Get all the SameObjectHyps
+        same_object_hyps = [h for h in hypotheses.values()
+                         if type(h) == SameObjectHyp]
+        for hypothesis in same_object_hyps:
             # Individual score is based on its similarity score, so its
             # evidence score should be fine.
             score = hypothesis.score
@@ -269,9 +269,9 @@ class HypothesisEvaluator():
                 new_paired_scores[id_pair_2] = const.H_SCORE_OFFSET
             # end for
         # end for
-        # All ObjectDuplicateHypotheses should now have an individual score and
+        # All SameObjectHyps should now have an individual score and
         # its paired scores with any of its premise hypotheses.
-        # Find all of the ObjectDuplicateHypothesis pairs that contradict one
+        # Find all of the SameObjectHyp pairs that contradict one
         # another.
         id_pairs = self._find_contradicting_duplicate_pairs(
             hypotheses=hypotheses)
@@ -337,29 +337,29 @@ class HypothesisEvaluator():
         new_paired_scores.update(paired_scores_to_add)
 
         return (individual_scores, new_paired_scores, id_triplets)
-    # end _predict_object_duplicate_scores
+    # end _predict_same_object_scores
 
     def _find_contradicting_duplicate_pairs(self, 
                                             hypotheses: dict[int, Hypothesis]):
         """
-        Finds all the pairs of ObjectDuplicateHypotheses that contradict with
+        Finds all the pairs of SameObjectHyps that contradict with
         one another.
 
-        Two ObjectDuplicateHypotheses contradict if they both assert that one
+        Two SameObjectHyps contradict if they both assert that one
         Object is equal to two other Objects that are both in the same scene.
 
         Returns a list of hypothesis id pairs (without duplicates).
         """
         # Store the ids of all contradicting hypothesis pairs.
         id_pairs = list()
-        # Get all the ObjectDuplicateHypotheses.
-        od_hypotheses = [h for h in hypotheses.values()
-                         if type(h) == ObjectDuplicateHypothesis]
-        # Two ObjectDuplicateHypotheses contradict if they:
+        # Get all the SameObjectHyps.
+        same_object_hyps = [h for h in hypotheses.values()
+                         if type(h) == SameObjectHyp]
+        # Two SameObjectHyps contradict if they:
         #   1. Share an Object.
         #   2. Both have non-shared Objects that are in the same scene. 
-        for hypothesis_1 in od_hypotheses:
-            for hypothesis_2 in od_hypotheses:
+        for hypothesis_1 in same_object_hyps:
+            for hypothesis_2 in same_object_hyps:
                 if hypothesis_1 == hypothesis_2:
                     continue
                 # See if one of the Objects matches between hypothesis 1 and 2.
@@ -409,9 +409,9 @@ class HypothesisEvaluator():
                                            hypotheses: dict[int, Hypothesis]):
         """
         Finds all the transitive property triplets amongst the
-        ObjectDuplicateHypotheses in the hypotheses passed in.
+        SameObjectHyps in the hypotheses passed in.
 
-        Three ObjectDuplicateHypotheses form a triplet if the transitive
+        Three SameObjectHyps form a triplet if the transitive
         property requires that they all be accepted if at least two of the are
         accepted.
         
@@ -423,13 +423,13 @@ class HypothesisEvaluator():
         """
         # Store the transitive property triplets as triplets of hypothesis ids.
         id_triplets = list()
-        # Get all the ObjectDuplicateHypotheses.
-        od_hypotheses = [h for h in hypotheses.values()
-                         if type(h) == ObjectDuplicateHypothesis]
-        for hypothesis_1 in od_hypotheses:
+        # Get all the SameObjectHyps.
+        same_object_hyps = [h for h in hypotheses.values()
+                         if type(h) == SameObjectHyp]
+        for hypothesis_1 in same_object_hyps:
             # Look for another hypothesis that leads to or from one of this
             # hypothesis' objects.
-            for hypothesis_2 in od_hypotheses:
+            for hypothesis_2 in same_object_hyps:
                 if hypothesis_1 == hypothesis_2:
                     continue
                 # See if one of the Objects matches between hypothesis 1 and 2.
@@ -456,7 +456,7 @@ class HypothesisEvaluator():
                 # end if
                 # Look for a third hypothesis between the other two hypotheses'
                 # non-matching objects.
-                for hypothesis_3 in od_hypotheses:
+                for hypothesis_3 in same_object_hyps:
                     if hypothesis_1 == hypothesis_3:
                         continue
                     elif hypothesis_2 == hypothesis_3:
@@ -695,10 +695,10 @@ class HypothesisEvaluator():
         for hypothesis in concept_edge_hyps:
             hypothesis_scores[hypothesis.id] = hypothesis.score
         # end for
-        # For ObjectDuplicateHypotheses, take their scores.
-        od_hypotheses = [h for h in hypotheses.values()
-                         if type(h) == ObjectDuplicateHypothesis]
-        for hypothesis in od_hypotheses:
+        # For SameObjectHyps, take their scores.
+        same_object_hyps = [h for h in hypotheses.values()
+                         if type(h) == SameObjectHyp]
+        for hypothesis in same_object_hyps:
             hypothesis_scores[hypothesis.id] = hypothesis.score
         # end for
         # For InstanceHypotheses, subtract one no_relationship_penalty for each

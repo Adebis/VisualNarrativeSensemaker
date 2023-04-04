@@ -390,7 +390,7 @@ class NewObjectHyp(Hypothesis):
     # end calculate_score
 # end NewObjectHyp
 
-class ObjectDuplicateHypothesis(Hypothesis):
+class SameObjectHyp(Hypothesis):
     """
     A Hypothesis that two Object Instances represent the same Object. 
 
@@ -447,7 +447,7 @@ class ObjectDuplicateHypothesis(Hypothesis):
     def has_object(self, object: Object):
         """
         Whether or not the Object passed in is one of the two Objects this 
-        ObjectDuplicateHypothesis is between.
+        SameObjectHyp is between.
         """
         return (True if (self.object_1 == object or self.object_2 == object) 
                 else False)
@@ -455,7 +455,7 @@ class ObjectDuplicateHypothesis(Hypothesis):
 
     def get_other_object(self, object: Object):
         """
-        Returns the Object for this ObjectDuplicateHypothesis which is not the
+        Returns the Object for this SameObjectHyp which is not the
         one passed in. If the Object passed in is neither of this Hypothesis'
         Objects, returns None.
         """
@@ -472,7 +472,7 @@ class ObjectDuplicateHypothesis(Hypothesis):
         return score
     # end calculate_score
 
-# end class ObjectDuplicateHypothesis
+# end class SameObjectHyp
 
 class ObjectPersistenceHypothesis(Hypothesis):
     """
@@ -481,7 +481,7 @@ class ObjectPersistenceHypothesis(Hypothesis):
 
     Evidence is a NewObjectHyp for an offscreen Object in the
     other image that is an exact copy of the persisting Object and an
-    ObjectDuplicateHypothesis between the persisting Object and its offscreen
+    SameObjectHyp between the persisting Object and its offscreen
     copy in the other image.
 
     Attributes
@@ -491,17 +491,17 @@ class ObjectPersistenceHypothesis(Hypothesis):
     new_object_hyp : NewObjectHyp
         The hypothesis hypothesizing a copy of the persisting object exists in 
         another image.
-    object_duplicate_hypothesis : ObjectDuplicateHypothesis
+    same_object_hyp : SameObjectHyp
         The hypothesis hypothesizing that the copy of the persisting object is
         its duplicate. 
     """
 
     def __init__(self, object_: Object, 
                  new_object_hyp: NewObjectHyp,
-                 object_dulpicate_hypothesis: ObjectDuplicateHypothesis):
+                 object_dulpicate_hypothesis: SameObjectHyp):
         """
         Initializes with the existing Object that's hypothesized to persist,
-        its NewObjectHyp, and its ObjectDuplicateHypothesis.
+        its NewObjectHyp, and its SameObjectHyp.
 
         Builds its own OtherHypothesisEvidence.
         """

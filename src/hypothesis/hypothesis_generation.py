@@ -11,7 +11,7 @@ from constants import ConceptType
 
 from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHyp, 
                                    NewObjectHyp, 
-                                   ObjectDuplicateHypothesis,
+                                   SameObjectHyp,
                                    ObjectPersistenceHypothesis,
                                    ActionHypothesis, Evidence, 
                                    ConceptEdgeEvidence)
@@ -155,7 +155,7 @@ class HypothesisGenerator:
 
             for image in absent_images:
                 # Go through each observed Object in this image and make an
-                # ObjectDuplicateHypothesis with any of them whose Concepts
+                # SameObjectHyp with any of them whose Concepts
                 # overlap with this current Object.
                 scene_instances = knowledge_graph.get_scene_instances(image)
                 for scene_instance in scene_instances:
@@ -165,8 +165,8 @@ class HypothesisGenerator:
                     # See if any of the concepts overlap.
                     for concept in current_object.concepts:
                         if scene_instance.has_concept(concept):
-                            # If they do, make an ObjectDuplicateHypothesis.
-                            new_od_h = ObjectDuplicateHypothesis(
+                            # If they do, make an SameObjectHyp.
+                            new_od_h = SameObjectHyp(
                                 object_1=current_object,
                                 object_2=scene_instance)
                             all_new_hypotheses.append(new_od_h)
@@ -244,36 +244,36 @@ class HypothesisGenerator:
                 new_object_hyp = NewObjectHyp(
                     obj=new_object, 
                     concept_edge_hyps=concept_edge_hyps)
-                # Make an ObjectDuplicateHypothesis between the original Object
+                # Make an SameObjectHyp between the original Object
                 # and the hypothesized Object.
-                object_duplicate_hypothesis = ObjectDuplicateHypothesis(
+                same_object_hyp = SameObjectHyp(
                     current_object, new_object)
-                # Premise the ObjectDuplicateHypothesis on the 
+                # Premise the SameObjectHyp on the 
                 # NewObjectHyp, since it wouldn't exist without the 
                 # new Object being hypothesized.
-                object_duplicate_hypothesis.add_premise(new_object_hyp)
+                same_object_hyp.add_premise(new_object_hyp)
                 # Premise the NewObjectHyp on the 
-                # ObjectDuplicateHypothesis, since if it isn't a duplicate of 
+                # SameObjectHyp, since if it isn't a duplicate of 
                 # the original Object it has no reason to exist.
-                new_object_hyp.add_premise(object_duplicate_hypothesis)
+                new_object_hyp.add_premise(same_object_hyp)
 
                 # Make the ObjectPersistenceHypothesis based on this
-                # NewObjectHyp and ObjectDuplicateHypothesis.
+                # NewObjectHyp and SameObjectHyp.
                 object_persistence_hypothesis = ObjectPersistenceHypothesis(
                     object_ = new_object,
                     new_object_hyp=new_object_hyp,
-                    object_dulpicate_hypothesis=object_duplicate_hypothesis)
+                    object_dulpicate_hypothesis=same_object_hyp)
                 
                 # Premise both the object duplicate hypothesis and the offscreen
                 # object hypothesis on the offscreen persistence hypothesis, as
                 # they have no reason for existing without it.
                 new_object_hyp.add_premise(object_persistence_hypothesis)
-                object_duplicate_hypothesis.add_premise(object_persistence_hypothesis)
+                same_object_hyp.add_premise(object_persistence_hypothesis)
 
                 # Make sure to store the new Hypotheses
                 new_hypotheses.append(new_object_hyp)
                 new_hypotheses.extend(concept_edge_hyps)
-                new_hypotheses.append(object_duplicate_hypothesis)
+                new_hypotheses.append(same_object_hyp)
                 new_hypotheses.append(object_persistence_hypothesis)
             # end for image in absent_images
         # end for current_object in knowledge_graph.objects.values()

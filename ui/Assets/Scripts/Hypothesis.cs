@@ -130,7 +130,7 @@ public class NewObjectHyp : Hypothesis
     }
 }
 
-public class ObjectDuplicateHypothesis : Hypothesis
+public class SameObjectHyp : Hypothesis
 {
     public int object_1_id;
     public ObjectNode object_1;
@@ -139,7 +139,7 @@ public class ObjectDuplicateHypothesis : Hypothesis
 
     public Edge edge;
 
-    public ObjectDuplicateHypothesis(JToken token) : base(token)
+    public SameObjectHyp(JToken token) : base(token)
     {
         this.object_1_id = (int)token["object_1"];
         this.object_2_id = (int)token["object_2"];
@@ -153,13 +153,13 @@ public class ObjectPersistenceHypothesis : Hypothesis
     public ObjectNode object_;
     public int offscreen_obj_h_id;
     public NewObjectHyp new_object_hyp;
-    public int object_duplicate_h_id;
-    public ObjectDuplicateHypothesis object_duplicate_hypothesis;
+    public int same_object_h_id;
+    public SameObjectHyp same_object_hyp;
 
     public ObjectPersistenceHypothesis(JToken token) : base(token)
     {
         this.object_id = (int)token["object_"];
         this.offscreen_obj_h_id = (int)token["new_object_hyp"];
-        this.object_duplicate_h_id = (int)token["object_duplicate_hypothesis"];
+        this.same_object_h_id = (int)token["same_object_hyp"];
     }
 }

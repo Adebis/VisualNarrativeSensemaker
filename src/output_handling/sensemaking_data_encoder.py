@@ -16,7 +16,7 @@ from hypothesis.hypothesis import (Evidence, ConceptEdgeEvidence,
                                    Hypothesis,
                                    ConceptEdgeHyp,
                                    NewObjectHyp,
-                                   ObjectDuplicateHypothesis,
+                                   SameObjectHyp,
                                    ObjectPersistenceHypothesis)
 from hypothesis.hypothesis_evaluator import Solution
 
@@ -62,8 +62,8 @@ class SensemakingDataEncoder(json.JSONEncoder):
             return self._encode_concept_edge_hyp(o)
         elif isinstance(o, NewObjectHyp):
             return self._encode_new_object_hyp(o)
-        elif isinstance(o, ObjectDuplicateHypothesis):
-            return self._encode_object_duplicate_hypothesis(o)
+        elif isinstance(o, SameObjectHyp):
+            return self._encode_same_object_hyp(o)
         elif isinstance(o, ObjectPersistenceHypothesis):
             return self._encode_object_persistence_hypothesis(o)
         elif isinstance(o, Solution):
@@ -377,22 +377,22 @@ class SensemakingDataEncoder(json.JSONEncoder):
         return h_dict
     # end _encode_new_object_hyp
 
-    def _encode_object_duplicate_hypothesis(self, 
-                                    od_hypothesis: ObjectDuplicateHypothesis):
+    def _encode_same_object_hyp(self, 
+                                    same_object_hyp: SameObjectHyp):
         """
-        Encodes an ObjectDuplicateHypothesis into a json serializable dict.
+        Encodes an SameObjectHyp into a json serializable dict.
 
         object_1 and object_2 are encoded as their Node ids.
 
         edge is a hypothesized Edge which does not exist in the knowledge graph, 
         so the whole Edge is encoded in the hypothesis.
         """
-        h_dict = self._encode_hypothesis(od_hypothesis)
-        h_dict.update({'object_1': od_hypothesis.object_1.id,
-                       'object_2': od_hypothesis.object_2.id,
-                       'edge': od_hypothesis.edge})
+        h_dict = self._encode_hypothesis(same_object_hyp)
+        h_dict.update({'object_1': same_object_hyp.object_1.id,
+                       'object_2': same_object_hyp.object_2.id,
+                       'edge': same_object_hyp.edge})
         return h_dict
-    # end _encode_object_duplicate_hypothesis
+    # end _encode_same_object_hyp
 
     def _encode_object_persistence_hypothesis(self, 
                                     op_hypothesis: ObjectPersistenceHypothesis):
@@ -401,13 +401,13 @@ class SensemakingDataEncoder(json.JSONEncoder):
 
         object_ is encoded as its Node id.
 
-        new_object_hyp and object_duplicate_hypothesis are
+        new_object_hyp and same_object_hyp are
         encoded as their ids.
         """
         h_dict = self._encode_hypothesis(op_hypothesis)
         h_dict.update({'object_': op_hypothesis.object_.id,
             'new_object_hyp': op_hypothesis.new_object_hyp.id,
-            'object_duplicate_hypothesis': op_hypothesis.object_dulpicate_hypothesis.id})
+            'same_object_hyp': op_hypothesis.object_dulpicate_hypothesis.id})
         return h_dict
     # end _encode_object_persistence_hypothesis
 
