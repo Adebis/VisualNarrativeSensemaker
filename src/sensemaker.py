@@ -25,7 +25,7 @@ from hypothesis.hypothesis_generation import HypothesisGenerator
 from hypothesis.hypothesis_evaluator import HypothesisEvaluator
 from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHyp, 
                                    ObjectDuplicateHypothesis, 
-                                   OffscreenObjectHypothesis)
+                                   NewObjectHyp)
 
 class SenseMaker:
     """
@@ -108,7 +108,7 @@ class SenseMaker:
 
         # Add hypothetical objects to the knowledge graph before encoding.
         objects_hs = [h for h in hypotheses.values() 
-                       if type(h) == OffscreenObjectHypothesis]
+                       if type(h) == NewObjectHyp]
         for h in objects_hs:
             knowledge_graph.add_node(h.obj)
         # end for

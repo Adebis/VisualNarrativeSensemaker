@@ -78,13 +78,13 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
             {
                 case "ConceptEdgeHyp":
                 {
-                    var new_h = new ConceptEdgeHypothesis(h_token);
+                    var new_h = new ConceptEdgeHyp(h_token);
                     hypotheses[new_h.id] = new_h;
                     break;
                 }
-                case "OffscreenObjectHypothesis":
+                case "NewObjectHyp":
                 {
-                    var new_h = new OffscreenObjectHypothesis(h_token);
+                    var new_h = new NewObjectHyp(h_token);
                     hypotheses[new_h.id] = new_h;
                     break;
                 }
@@ -141,9 +141,9 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
                 }
             }
             // Concept edge hypotheses reference two instance Nodes and an Edge.
-            if (hypothesis is ConceptEdgeHypothesis)
+            if (hypothesis is ConceptEdgeHyp)
             {
-                var ce_h = (ConceptEdgeHypothesis)hypothesis;
+                var ce_h = (ConceptEdgeHyp)hypothesis;
                 ce_h.source_instance = knowledge_graph.nodes[ce_h.source_instance_id];
                 ce_h.target_instance = knowledge_graph.nodes[ce_h.target_instance_id];
                 ce_h.edge = knowledge_graph.edges[ce_h.edge_id];
@@ -151,13 +151,13 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
             // Object hypotheses reference a set of concept edge hypotheses
             // and an ObjectNode.
             // Its ObjectNode references a set of Concept node and a set of Images.
-            else if (hypothesis is OffscreenObjectHypothesis)
+            else if (hypothesis is NewObjectHyp)
             {
-                var obj_h = (OffscreenObjectHypothesis)hypothesis;
+                var obj_h = (NewObjectHyp)hypothesis;
                 obj_h.obj = (ObjectNode)knowledge_graph.nodes[obj_h.object_id];
                 foreach (int ce_h_id in obj_h.concept_edge_hyps_ids)
                 {
-                    obj_h.concept_edge_hyps[ce_h_id] = (ConceptEdgeHypothesis)hypotheses[ce_h_id];
+                    obj_h.concept_edge_hyps[ce_h_id] = (ConceptEdgeHyp)hypotheses[ce_h_id];
                 }
                 foreach (int concept_id in obj_h.obj.concept_ids)
                 {
@@ -184,7 +184,7 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
             {
                 var op_h = (ObjectPersistenceHypothesis)hypothesis;
                 op_h.object_ = (ObjectNode)knowledge_graph.nodes[op_h.object_id];
-                op_h.offscreen_object_hypothesis = (OffscreenObjectHypothesis)hypotheses[op_h.offscreen_obj_h_id];
+                op_h.new_object_hyp = (NewObjectHyp)hypotheses[op_h.offscreen_obj_h_id];
                 op_h.object_duplicate_hypothesis = (ObjectDuplicateHypothesis)hypotheses[op_h.object_duplicate_h_id];
             }
         }

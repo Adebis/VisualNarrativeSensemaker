@@ -9,7 +9,7 @@ from knowledge_graph.graph import KnowledgeGraph
 from knowledge_graph.items import (Instance, Edge)
 from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHyp, 
                                    ObjectDuplicateHypothesis, 
-                                   OffscreenObjectHypothesis,
+                                   NewObjectHyp,
                                    ObjectPersistenceHypothesis)
 
 @dataclass
@@ -108,8 +108,8 @@ class HypothesisEvaluator():
         individual_scores.update(i_scores)
         paired_scores.update(p_scores)
 
-        # Score all OffscreenObjectHypotheses
-        i_scores, p_scores = self._predict_offscreen_object_scores(
+        # Score all NewObjectHyps
+        i_scores, p_scores = self._predict_new_object_scores(
             knowledge_graph=knowledge_graph, hypotheses=hypotheses)
         individual_scores.update(i_scores)
         paired_scores.update(p_scores)
@@ -486,10 +486,10 @@ class HypothesisEvaluator():
         return id_triplets
     # end _find_transitive_property_triplets
 
-    def _predict_offscreen_object_scores(self, knowledge_graph: KnowledgeGraph, 
+    def _predict_new_object_scores(self, knowledge_graph: KnowledgeGraph, 
                                  hypotheses: dict[int, Hypothesis]):
         """
-        Predicts scores for all of the OffscreenObjectHypotheses.
+        Predicts scores for all of the NewObjectHyps.
 
         Parameters
         ----------
@@ -501,7 +501,7 @@ class HypothesisEvaluator():
         Returns
         -------
         individual_scores : dict[int, float]
-            The individual scores for each OffscreenObjectHypothesis, keyed by
+            The individual scores for each NewObjectHyp, keyed by
             hypothesis id.
         paired_scores : dict[tuple[int, int], float]
             The paired scores for accepting hypotheses together, keyed by
@@ -511,7 +511,7 @@ class HypothesisEvaluator():
         paired_scores = dict()
         # Get all the ObjectHypotheses.
         obj_hypotheses = [h for h in hypotheses.values()
-                        if type(h) == OffscreenObjectHypothesis]
+                        if type(h) == NewObjectHyp]
         for hypothesis in obj_hypotheses:
             # Get the image for the scene this hypothesized Instance is in.
             image = hypothesis.obj.get_image()
@@ -575,7 +575,7 @@ class HypothesisEvaluator():
         Returns
         -------
         individual_scores : dict[int, float]
-            The individual scores for each OffscreenObjectHypothesis, keyed by
+            The individual scores for each NewObjectHyp, keyed by
             hypothesis id.
         paired_scores : dict[tuple[int, int], float]
             The paired scores for accepting hypotheses together, keyed by
@@ -706,7 +706,7 @@ class HypothesisEvaluator():
         # as well as the strength of the edge for each ConceptEdgeHypothesis
         # that was accepted for it. 
         i_hypotheses = [h for h in hypotheses.values()
-                        if type(h) == OffscreenObjectHypothesis]
+                        if type(h) == NewObjectHyp]
         for hypothesis in i_hypotheses:
             score = 0
             image = hypothesis.obj.get_image()

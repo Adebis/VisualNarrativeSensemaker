@@ -325,7 +325,7 @@ class ConceptEdgeHyp(Hypothesis):
     # end calculate_score
 # end class ConceptEdgeHypothesis
 
-class OffscreenObjectHypothesis(Hypothesis):
+class NewObjectHyp(Hypothesis):
     """
     A Hypothesis that an Object exists which was not observed in a scene graph.
 
@@ -349,7 +349,7 @@ class OffscreenObjectHypothesis(Hypothesis):
 
     def __init__(self, obj: Object, concept_edge_hyps: list[Hypothesis]):
         """
-        Initializes an OffscreenObjectHypothesis with the hypothetical Object and
+        Initializes a NewObjectHyp with the hypothetical Object and
         the ConceptEdgeHypotheses between it and the other Objects in its
         scene. 
 
@@ -388,7 +388,7 @@ class OffscreenObjectHypothesis(Hypothesis):
         self.score = score
         return score
     # end calculate_score
-# end OffscreenObjectHypothesis
+# end NewObjectHyp
 
 class ObjectDuplicateHypothesis(Hypothesis):
     """
@@ -479,7 +479,7 @@ class ObjectPersistenceHypothesis(Hypothesis):
     A hypothesis that an Object in one image persists into another image
     as an off-screen Object. 
 
-    Evidence is an OffscreenObjectHypothesis for an offscreen Object in the
+    Evidence is a NewObjectHyp for an offscreen Object in the
     other image that is an exact copy of the persisting Object and an
     ObjectDuplicateHypothesis between the persisting Object and its offscreen
     copy in the other image.
@@ -488,7 +488,7 @@ class ObjectPersistenceHypothesis(Hypothesis):
     ----------
     object_ : Object
         The existing Object that's hypothesized to persist into another image.
-    offscreen_object_hypothesis : OffscreenObjectHypothesis
+    new_object_hyp : NewObjectHyp
         The hypothesis hypothesizing a copy of the persisting object exists in 
         another image.
     object_duplicate_hypothesis : ObjectDuplicateHypothesis
@@ -497,27 +497,27 @@ class ObjectPersistenceHypothesis(Hypothesis):
     """
 
     def __init__(self, object_: Object, 
-                 offscreen_object_hypothesis: OffscreenObjectHypothesis,
+                 new_object_hyp: NewObjectHyp,
                  object_dulpicate_hypothesis: ObjectDuplicateHypothesis):
         """
         Initializes with the existing Object that's hypothesized to persist,
-        its OffscreenObjectHypothesis, and its ObjectDuplicateHypothesis.
+        its NewObjectHyp, and its ObjectDuplicateHypothesis.
 
         Builds its own OtherHypothesisEvidence.
         """
         self.object_ = object_
-        self.offscreen_object_hypothesis = offscreen_object_hypothesis
+        self.new_object_hyp = new_object_hyp
         self.object_dulpicate_hypothesis = object_dulpicate_hypothesis
         evidence = list()
         evidence.append(
-            OtherHypothesisEvidence(offscreen_object_hypothesis))
+            OtherHypothesisEvidence(new_object_hyp))
         evidence.append(
             OtherHypothesisEvidence(object_dulpicate_hypothesis))
         name = (f'objpersist_h_{Hypothesis._next_id}_{object_.name}')
         super().__init__(name=name, evidence=evidence)
         # Adds the two Hypotheses used as evidence as premises to this
         # hypothesis.
-        self.add_premise(offscreen_object_hypothesis)
+        self.add_premise(new_object_hyp)
         self.add_premise(object_dulpicate_hypothesis)
     # end __init__
 

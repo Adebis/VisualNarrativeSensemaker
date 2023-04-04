@@ -10,7 +10,7 @@ import constants as const
 from constants import ConceptType
 
 from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHyp, 
-                                   OffscreenObjectHypothesis, 
+                                   NewObjectHyp, 
                                    ObjectDuplicateHypothesis,
                                    ObjectPersistenceHypothesis,
                                    ActionHypothesis, Evidence, 
@@ -198,7 +198,7 @@ class HypothesisGenerator:
                 if not image.id in current_object.images:
                     absent_images.append(image)
             # end for
-            # For each Image the Object is not in, make an OffscreenObjectHypothesis 
+            # For each Image the Object is not in, make a NewObjectHyp 
             # that an Object with the current Object's Concepts, appearance, and
             # attributes is in that Image. 
             for image in absent_images:
@@ -226,7 +226,7 @@ class HypothesisGenerator:
                 # Make ConceptEdgeHypotheses to every other hypothesized
                 # Object in the same scene.
                 obj_hypotheses = [h for h in new_hypotheses 
-                                  if type(h) == OffscreenObjectHypothesis
+                                  if type(h) == NewObjectHyp
                                   and h.obj.get_image() == image]
                 for existing_hypothesis in obj_hypotheses:
                     ces_to_existing_hypotheses = self._hypothesize_concept_edge(
@@ -239,9 +239,9 @@ class HypothesisGenerator:
                         concept_edge_hyp.add_premise(existing_hypothesis)
                     concept_edge_hyps.extend(ces_to_existing_hypotheses)
                 # end for
-                # Make the OffscreenObjectHypothesis using these 
+                # Make the NewObjectHyp using these 
                 # ConceptEdgeHypotheses as evidence.
-                offscreen_object_hypothesis = OffscreenObjectHypothesis(
+                new_object_hyp = NewObjectHyp(
                     obj=new_object, 
                     concept_edge_hyps=concept_edge_hyps)
                 # Make an ObjectDuplicateHypothesis between the original Object
@@ -249,29 +249,29 @@ class HypothesisGenerator:
                 object_duplicate_hypothesis = ObjectDuplicateHypothesis(
                     current_object, new_object)
                 # Premise the ObjectDuplicateHypothesis on the 
-                # OffscreenObjectHypothesis, since it wouldn't exist without the 
+                # NewObjectHyp, since it wouldn't exist without the 
                 # new Object being hypothesized.
-                object_duplicate_hypothesis.add_premise(offscreen_object_hypothesis)
-                # Premise the OffscreenObjectHypothesis on the 
+                object_duplicate_hypothesis.add_premise(new_object_hyp)
+                # Premise the NewObjectHyp on the 
                 # ObjectDuplicateHypothesis, since if it isn't a duplicate of 
                 # the original Object it has no reason to exist.
-                offscreen_object_hypothesis.add_premise(object_duplicate_hypothesis)
+                new_object_hyp.add_premise(object_duplicate_hypothesis)
 
                 # Make the ObjectPersistenceHypothesis based on this
-                # OffscreenObjectHypothesis and ObjectDuplicateHypothesis.
+                # NewObjectHyp and ObjectDuplicateHypothesis.
                 object_persistence_hypothesis = ObjectPersistenceHypothesis(
                     object_ = new_object,
-                    offscreen_object_hypothesis=offscreen_object_hypothesis,
+                    new_object_hyp=new_object_hyp,
                     object_dulpicate_hypothesis=object_duplicate_hypothesis)
                 
                 # Premise both the object duplicate hypothesis and the offscreen
                 # object hypothesis on the offscreen persistence hypothesis, as
                 # they have no reason for existing without it.
-                offscreen_object_hypothesis.add_premise(object_persistence_hypothesis)
+                new_object_hyp.add_premise(object_persistence_hypothesis)
                 object_duplicate_hypothesis.add_premise(object_persistence_hypothesis)
 
                 # Make sure to store the new Hypotheses
-                new_hypotheses.append(offscreen_object_hypothesis)
+                new_hypotheses.append(new_object_hyp)
                 new_hypotheses.extend(concept_edge_hyps)
                 new_hypotheses.append(object_duplicate_hypothesis)
                 new_hypotheses.append(object_persistence_hypothesis)

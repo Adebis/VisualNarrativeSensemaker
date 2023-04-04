@@ -93,7 +93,7 @@ public class Hypothesis
     }
 }
 
-public class ConceptEdgeHypothesis : Hypothesis
+public class ConceptEdgeHyp : Hypothesis
 {
     public int source_instance_id;
     public Node source_instance;
@@ -102,7 +102,7 @@ public class ConceptEdgeHypothesis : Hypothesis
     public int edge_id;
     public Edge edge;
 
-    public ConceptEdgeHypothesis(JToken token) : base(token)
+    public ConceptEdgeHyp(JToken token) : base(token)
     {
         this.source_instance_id = (int)token["source_instance"];
         this.target_instance_id = (int)token["target_instance"];
@@ -110,15 +110,15 @@ public class ConceptEdgeHypothesis : Hypothesis
     }
 }
 
-public class OffscreenObjectHypothesis : Hypothesis
+public class NewObjectHyp : Hypothesis
 {
     public int object_id;
     public ObjectNode obj;
     public List<int> concept_edge_hyps_ids;
-    public Dictionary<int, ConceptEdgeHypothesis> concept_edge_hyps;
+    public Dictionary<int, ConceptEdgeHyp> concept_edge_hyps;
 
 
-    public OffscreenObjectHypothesis(JToken token) : base(token)
+    public NewObjectHyp(JToken token) : base(token)
     {
         this.object_id = (int)token["object"];
         this.concept_edge_hyps_ids = new List<int>();
@@ -126,7 +126,7 @@ public class OffscreenObjectHypothesis : Hypothesis
         {
             this.concept_edge_hyps_ids.Add((int)concept_edge_hyp_id);
         }
-        this.concept_edge_hyps = new Dictionary<int, ConceptEdgeHypothesis>();
+        this.concept_edge_hyps = new Dictionary<int, ConceptEdgeHyp>();
     }
 }
 
@@ -152,14 +152,14 @@ public class ObjectPersistenceHypothesis : Hypothesis
     public int object_id;
     public ObjectNode object_;
     public int offscreen_obj_h_id;
-    public OffscreenObjectHypothesis offscreen_object_hypothesis;
+    public NewObjectHyp new_object_hyp;
     public int object_duplicate_h_id;
     public ObjectDuplicateHypothesis object_duplicate_hypothesis;
 
     public ObjectPersistenceHypothesis(JToken token) : base(token)
     {
         this.object_id = (int)token["object_"];
-        this.offscreen_obj_h_id = (int)token["offscreen_object_hypothesis"];
+        this.offscreen_obj_h_id = (int)token["new_object_hyp"];
         this.object_duplicate_h_id = (int)token["object_duplicate_hypothesis"];
     }
 }
