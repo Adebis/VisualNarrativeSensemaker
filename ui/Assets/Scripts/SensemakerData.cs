@@ -76,7 +76,7 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
         {
             switch((string)h_token["type"])
             {
-                case "ConceptEdgeHypothesis":
+                case "ConceptEdgeHyp":
                 {
                     var new_h = new ConceptEdgeHypothesis(h_token);
                     hypotheses[new_h.id] = new_h;
@@ -155,9 +155,9 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
             {
                 var obj_h = (OffscreenObjectHypothesis)hypothesis;
                 obj_h.obj = (ObjectNode)knowledge_graph.nodes[obj_h.object_id];
-                foreach (int ce_h_id in obj_h.concept_edge_hypothesis_ids)
+                foreach (int ce_h_id in obj_h.concept_edge_hyps_ids)
                 {
-                    obj_h.concept_edge_hypotheses[ce_h_id] = (ConceptEdgeHypothesis)hypotheses[ce_h_id];
+                    obj_h.concept_edge_hyps[ce_h_id] = (ConceptEdgeHypothesis)hypotheses[ce_h_id];
                 }
                 foreach (int concept_id in obj_h.obj.concept_ids)
                 {

@@ -7,7 +7,7 @@ import constants as const
 from parameters import ParameterSet
 from knowledge_graph.graph import KnowledgeGraph
 from knowledge_graph.items import (Instance, Edge)
-from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHypothesis, 
+from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHyp, 
                                    ObjectDuplicateHypothesis, 
                                    OffscreenObjectHypothesis,
                                    ObjectPersistenceHypothesis)
@@ -179,9 +179,9 @@ class HypothesisEvaluator():
         individual_scores = dict()
         paired_scores = dict()
         # Gather all the concept edge hypotheses.
-        ce_hypotheses = [h for h in hypotheses.values() 
-                         if type(h) == ConceptEdgeHypothesis]
-        for hypothesis in ce_hypotheses:
+        concept_edge_hyps = [h for h in hypotheses.values() 
+                             if type(h) == ConceptEdgeHyp]
+        for hypothesis in concept_edge_hyps:
             # The hypothesis' individual score is its evidence score, modified
             # by any parameters.
             score = hypothesis.score
@@ -543,16 +543,16 @@ class HypothesisEvaluator():
                 paired_scores[id_pair_2] = score
             # end for scene_obj_hypothesis
             # Go through all of this hypothesis' ConceptEdgeHypotheses.
-            for ce_hypothesis in hypothesis.concept_edge_hypotheses:
+            for concept_edge_hyp in hypothesis.concept_edge_hyps:
                 # The paired score for accepting this edge is equal to the score 
                 # of removing one no_relationship_penalty. 
                 score = -self.parameters.no_relationship_penalty
                 score *= centrality_factor
-                id_pair_1 = (hypothesis.id, ce_hypothesis.id)
-                id_pair_2 = (ce_hypothesis.id, hypothesis.id)
+                id_pair_1 = (hypothesis.id, concept_edge_hyp.id)
+                id_pair_2 = (concept_edge_hyp.id, hypothesis.id)
                 paired_scores[id_pair_1] = score
                 paired_scores[id_pair_2] = score
-            # end for ce_hypothesis
+            # end for concept_edge_hyp
             # If it's premised on any other Hypotheses, give its score a
             # large negative number and its paired score with the other 
             # Hypothesis an equally large positive number to enforce the fact 
@@ -690,9 +690,9 @@ class HypothesisEvaluator():
         """
         # For ConceptEdgeHypotheses, take their scores.
         hypothesis_scores = dict()
-        ce_hypotheses = [h for h in hypotheses.values() 
-                         if type(h) == ConceptEdgeHypothesis]
-        for hypothesis in ce_hypotheses:
+        concept_edge_hyps = [h for h in hypotheses.values() 
+                         if type(h) == ConceptEdgeHyp]
+        for hypothesis in concept_edge_hyps:
             hypothesis_scores[hypothesis.id] = hypothesis.score
         # end for
         # For ObjectDuplicateHypotheses, take their scores.

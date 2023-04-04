@@ -23,7 +23,7 @@ from output_handling.sensemaking_data_encoder import SensemakingDataEncoder
 
 from hypothesis.hypothesis_generation import HypothesisGenerator
 from hypothesis.hypothesis_evaluator import HypothesisEvaluator
-from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHypothesis, 
+from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHyp, 
                                    ObjectDuplicateHypothesis, 
                                    OffscreenObjectHypothesis)
 

@@ -14,7 +14,7 @@ from hypothesis.hypothesis import (Evidence, ConceptEdgeEvidence,
                                    VisualSimilarityEvidence,
                                    AttributeSimilarityEvidence,
                                    Hypothesis,
-                                   ConceptEdgeHypothesis,
+                                   ConceptEdgeHyp,
                                    OffscreenObjectHypothesis,
                                    ObjectDuplicateHypothesis,
                                    ObjectPersistenceHypothesis)
@@ -58,8 +58,8 @@ class SensemakingDataEncoder(json.JSONEncoder):
             return self._encode_visual_similarity_evidence(o)
         elif isinstance(o, AttributeSimilarityEvidence):
             return self._encode_attribute_similarity_evidence(o)
-        elif isinstance(o, ConceptEdgeHypothesis):
-            return self._encode_concept_edge_hypothesis(o)
+        elif isinstance(o, ConceptEdgeHyp):
+            return self._encode_concept_edge_hyp(o)
         elif isinstance(o, OffscreenObjectHypothesis):
             return self._encode_offscreen_object_hypothesis(o)
         elif isinstance(o, ObjectDuplicateHypothesis):
@@ -345,8 +345,7 @@ class SensemakingDataEncoder(json.JSONEncoder):
                 'type': type(hypothesis).__name__}
     # end _encode_hypothesis
 
-    def _encode_concept_edge_hypothesis(self, 
-                                        ce_hypothesis: ConceptEdgeHypothesis):
+    def _encode_concept_edge_hyp(self, concept_edge_hyp: ConceptEdgeHyp):
         """
         Encodes a ConceptEdgeHypothesis into a json serializable dict.
 
@@ -354,12 +353,12 @@ class SensemakingDataEncoder(json.JSONEncoder):
 
         edge is encoded as an Edge id.
         """
-        h_dict = self._encode_hypothesis(ce_hypothesis)
-        h_dict.update({'source_instance': ce_hypothesis.source_instance.id,
-                       'target_instance': ce_hypothesis.target_instance.id,
-                       'edge': ce_hypothesis.edge.id})
+        h_dict = self._encode_hypothesis(concept_edge_hyp)
+        h_dict.update({'source_instance': concept_edge_hyp.source_instance.id,
+                       'target_instance': concept_edge_hyp.target_instance.id,
+                       'edge': concept_edge_hyp.edge.id})
         return h_dict
-    # end _encode_concept_edge_hypothesis
+    # end _encode_concept_edge_hyp
 
     def _encode_offscreen_object_hypothesis(self, 
             obj_hypothesis: OffscreenObjectHypothesis):
@@ -369,12 +368,12 @@ class SensemakingDataEncoder(json.JSONEncoder):
         object is a hypothesized Object which should be in the 
         KnowledgeGraph. It is encoded as its id.
 
-        concept_edge_hypotheses is encoded as a list of Hypothesis id.
+        concept_edge_hyps is encoded as a list of Hypothesis id.
         """
         h_dict = self._encode_hypothesis(obj_hypothesis)
         h_dict.update({'object': obj_hypothesis.obj.id,
-                       'concept_edge_hypotheses': [h.id for h in 
-                                        obj_hypothesis.concept_edge_hypotheses]})
+                       'concept_edge_hyps': [h.id for h in 
+                                        obj_hypothesis.concept_edge_hyps]})
         return h_dict
     # end _encode_offscreen_object_hypothesis
 

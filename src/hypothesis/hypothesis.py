@@ -242,7 +242,7 @@ class Hypothesis:
 
 # end class Hypothesis
 
-class ConceptEdgeHypothesis(Hypothesis):
+class ConceptEdgeHyp(Hypothesis):
     """
     A Hypothesis that a relationship between two Instances' Concepts is a
     real relationship between those Instances. 
@@ -340,14 +340,14 @@ class OffscreenObjectHypothesis(Hypothesis):
     ----------
     obj : Object
         The hypothesized Object.
-    concept_edge_hypotheses : list[Hypothesis]
+    concept_edge_hyps : list[Hypothesis]
         The hypothesized Concept Edges from the hypothesized Object's Concept
         to each other Instance's Concept in the same scene.
     """
     obj: Object
-    concept_edge_hypotheses: list[Hypothesis]
+    concept_edge_hyps: list[Hypothesis]
 
-    def __init__(self, obj: Object, concept_edge_hypotheses: list[Hypothesis]):
+    def __init__(self, obj: Object, concept_edge_hyps: list[Hypothesis]):
         """
         Initializes an OffscreenObjectHypothesis with the hypothetical Object and
         the ConceptEdgeHypotheses between it and the other Objects in its
@@ -362,22 +362,22 @@ class OffscreenObjectHypothesis(Hypothesis):
         name = (f'offobj_h_{Hypothesis._next_id}_{obj.name}')
         # Make OtherHypothesisEvidence for each concept edge hypothesis passed
         # in.
-        evidence = [OtherHypothesisEvidence(h) for h in concept_edge_hypotheses]
+        evidence = [OtherHypothesisEvidence(h) for h in concept_edge_hyps]
         super().__init__(name=name, evidence=evidence)
         # Make this Hypothesis a premise of every ConceptEdgeHypothesis passed
         # in, since they wouldn't exist without this Hypothesis' hypothetical
         # Instance.
-        for hypothesis in concept_edge_hypotheses:
+        for hypothesis in concept_edge_hyps:
             hypothesis.add_premise(premise=self)
         self.obj = obj
-        self.concept_edge_hypotheses = concept_edge_hypotheses
+        self.concept_edge_hyps = concept_edge_hyps
 
         self.calculate_score()
     # end __init__
 
     def __repr__(self):
         return (f'{self.name}. ' + 
-                f'Concept edges: {len(self.concept_edge_hypotheses)}. ' + 
+                f'Concept edges: {len(self.concept_edge_hyps)}. ' + 
                 f'Score: {self.score}')
     # end __repr__
 
@@ -529,6 +529,8 @@ class ObjectPersistenceHypothesis(Hypothesis):
         return score
     # end calculate_score
 # end ObjectPersistenceHypothesis
+
+
 
 class ActionHypothesis(Hypothesis):
     """

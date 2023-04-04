@@ -114,19 +114,19 @@ public class OffscreenObjectHypothesis : Hypothesis
 {
     public int object_id;
     public ObjectNode obj;
-    public List<int> concept_edge_hypothesis_ids;
-    public Dictionary<int, ConceptEdgeHypothesis> concept_edge_hypotheses;
+    public List<int> concept_edge_hyps_ids;
+    public Dictionary<int, ConceptEdgeHypothesis> concept_edge_hyps;
 
 
     public OffscreenObjectHypothesis(JToken token) : base(token)
     {
         this.object_id = (int)token["object"];
-        this.concept_edge_hypothesis_ids = new List<int>();
-        foreach (JToken ce_hypothesis_id in token["concept_edge_hypotheses"])
+        this.concept_edge_hyps_ids = new List<int>();
+        foreach (JToken concept_edge_hyp_id in token["concept_edge_hyps"])
         {
-            this.concept_edge_hypothesis_ids.Add((int)ce_hypothesis_id);
+            this.concept_edge_hyps_ids.Add((int)concept_edge_hyp_id);
         }
-        this.concept_edge_hypotheses = new Dictionary<int, ConceptEdgeHypothesis>();
+        this.concept_edge_hyps = new Dictionary<int, ConceptEdgeHypothesis>();
     }
 }
 
