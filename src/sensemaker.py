@@ -22,7 +22,7 @@ from input_handling.scene_graph_reader import SceneGraphReader
 from output_handling.sensemaking_data_encoder import SensemakingDataEncoder
 
 from hypothesis.hypothesis_generation import HypothesisGenerator
-from hypothesis.hypothesis_evaluator import HypothesisEvaluator
+from hypothesis.hypothesis_evaluator import HypothesisEvaluator, Solution
 from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHyp, 
                                    SameObjectHyp, 
                                    NewObjectHyp)
@@ -88,24 +88,76 @@ class SenseMaker:
         
         timers['h_eval_start'] = timer()
         print(f'Evaluating hypotheses...')
-        # Each solution should have
-        #   'parameter_set'
-        #   'hypothesis_sets'
-        #   'energies'
-        all_solutions = list()
-        for parameters in parameter_sets:
-            hypothesis_evaluator = HypothesisEvaluator(parameters=parameters)
-            solutions = hypothesis_evaluator.evaluate_hypotheses(
-                knowledge_graph=knowledge_graph,
-                hypotheses=hypotheses)
-            all_solutions.append({'parameter_set': parameters.id,
-                                  'solutions': solutions})
-        # end for
+        all_solutions = self._evaluate_hypotheses(
+            knowledge_graph=knowledge_graph,
+            hypotheses=hypotheses,
+            parameter_sets={p_set.id: p_set for p_set in parameter_sets})
         print(f'Done evaluating hypotheses.' + 
               f' Time taken: {timer() - timers["h_eval_start"]}')
         
         print(f'Writing output to json...')
+        self._write_output_json(knowledge_graph=knowledge_graph,
+                                hypotheses=hypotheses,
+                                parameter_sets={p_set.id: p_set 
+                                                for p_set in parameter_sets},
+                                solutions=all_solutions)
 
+        print(f'Done performing sensemaking :) ' + 
+              f'elapsed time: {timer() - timers["start"]}')
+
+        return knowledge_graph, hypotheses
+    # end perform_sensemaking
+
+    def _evaluate_hypotheses(self, knowledge_graph: KnowledgeGraph,
+                             hypotheses: dict[int, Hypothesis],
+                             parameter_sets: dict[int, ParameterSet]):
+        """
+        Perform hypothesis evaluation on a set of Hypotheses using each of a
+        set of different parameter sets.
+
+        The hypotheses and parameter set inputs to this function should both be
+        dictionaries keyed by their respective members' ids.
+
+        Outputs a dictionary of lists of solutions, with each list keyed to
+        the id of the parameter set used to make those solutions.
+        """
+        # Each solution should have
+        #   'parameter_set'
+        #   'hypothesis_sets'
+        #   'energies'
+        all_solutions = dict()
+        for parameter_id, parameters in parameter_sets.items():
+            hypothesis_evaluator = HypothesisEvaluator(parameters=parameters)
+            solutions = hypothesis_evaluator.evaluate_hypotheses(
+                knowledge_graph=knowledge_graph,
+                hypotheses=hypotheses)
+            all_solutions[parameter_id] = solutions
+        # end for
+        return all_solutions
+    # end _evaluate_hypotheses
+
+    def _write_output_json(self, knowledge_graph: KnowledgeGraph, 
+                           hypotheses: dict[int, Hypothesis],
+                           parameter_sets: dict[int, ParameterSet],
+                           solutions: dict[int, list[Solution]]):
+        """
+        Write the solution sets for a series of sensemaking runs to an output
+        json file.
+
+        Parameters
+        ----------
+        knowledge_graph : KnowledgeGraph
+            The sensemaker's knowledge graph.
+        hypotheses : dict[int, Hypothesis]
+            A dictionary of all of the sensemaker's hypotheses, keyed by
+            hypothesis id.
+        parameter_sets : dict[int, ParameterSet]
+            A dictionary of the parameter sets used to evaluate hypotheses,
+            keyed by parameter set id.
+        solutions : dict[int, list[Solution]]
+            A dictionary of all of the solutions from hypothesis evaluation,
+            keyed by the id of the parameter set used to create them.
+        """
         # Add hypothetical objects to the knowledge graph before encoding.
         objects_hs = [h for h in hypotheses.values() 
                        if type(h) == NewObjectHyp]
@@ -114,7 +166,8 @@ class SenseMaker:
         # end for
         output_dict = {'sensemaker_data': {'knowledge_graph': knowledge_graph,
                        'hypotheses': list(hypotheses.values()),
-                       'solutions': all_solutions}}
+                       'parameter_sets': list(parameter_sets.values()),
+                       'solutions': list(solutions.values())}}
         json_data = json.dumps(output_dict, cls=SensemakingDataEncoder)
         json_obj = json.loads(json_data)
         # Make the output file name by concatenating the images' ids and
@@ -132,12 +185,7 @@ class SenseMaker:
         # Creates or overwrite any existing file with this name.
         with open(output_file_path, 'w') as output_file:
             json.dump(json_obj, output_file, indent=2)
-
-        print(f'Done performing sensemaking :) ' + 
-              f'elapsed time: {timer() - timers["start"]}')
-
-        return knowledge_graph, hypotheses
-    # end perform_sensemaking
+    # end _write_output_json
 
     def _compare_hypothesis_sets(self, hypotheses_1: dict[int, Hypothesis], 
                                  hypotheses_2: dict[int, Hypothesis]):

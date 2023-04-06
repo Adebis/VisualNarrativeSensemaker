@@ -415,10 +415,12 @@ class SensemakingDataEncoder(json.JSONEncoder):
         """
         Encodes a Solution into a json serializable dict.
 
+        parameters is encoded as the parameter set's id.
+
         accepted_hypotheses is encoded as a list of Hypothesis ids.
         """
         return {'id': solution.id,
-                'parameters': solution.parameters,
+                'parameters': solution.parameters.id,
                 'accepted_hypotheses': [h_id for h_id in 
                                         solution.accepted_hypotheses.keys()],
                 'energy': solution.energy}

@@ -59,9 +59,13 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
         JToken h_list_token = sensemaker_data_token["hypotheses"];
         sensemaker_data.hypotheses = this.DecodeHypotheses(h_list_token,
             sensemaker_data.knowledge_graph);
+        // Decode the parameter sets.
+        JToken psets_token = sensemaker_data_token["parameter_sets"];
+        sensemaker_data.parameter_sets = this.DecodeParameterSets(psets_token);
         // Decode the solutions
         JToken solutions_token = sensemaker_data_token["solutions"];
         sensemaker_data.solutions = this.DecodeSolutions(solutions_token,
+            sensemaker_data.parameter_sets,
             sensemaker_data.hypotheses);
         return sensemaker_data;
     }
@@ -191,36 +195,53 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
         return hypotheses;
     }
 
+    private Dictionary<int, ParameterSet> DecodeParameterSets(JToken token)
+    {
+        var parameter_sets = new Dictionary<int, ParameterSet>();
+        foreach (JToken pset_token in token)
+        {
+            var new_pset = new ParameterSet(pset_token);
+            parameter_sets[new_pset.id] = new_pset;
+        }
+        return parameter_sets;
+    }
+
     private Dictionary<int, Dictionary<int, Solution>> DecodeSolutions(
-        JToken token, Dictionary<int, Hypothesis> hypotheses)
+        JToken token, Dictionary<int, ParameterSet> parameter_sets,
+        Dictionary<int, Hypothesis> hypotheses)
     {
         // Solutions is first keyed by parameter set id, then by solution id.
         var solutions = new Dictionary<int, Dictionary<int, Solution>>();
+        foreach (int pset_id in parameter_sets.Keys)
+        {
+            solutions[pset_id] = new Dictionary<int, Solution>();
+        }
 
-        // The token passed in is a list of dictionaries. Each dictionary has
+        // The token passed in is a list of lists. Each dictionary has
         // "parameter_set", and int, and "solutions".
         // In "solutions" is a list of the actual solution objects.
-        foreach (JToken solution_set_token in token)
+        foreach (JToken solution_set_list_token in token)
         {
-            int parameter_set_id = (int)solution_set_token["parameter_set"];
-            solutions[parameter_set_id] = new Dictionary<int, Solution>();
-            foreach (JToken solution_token in solution_set_token["solutions"])
+            foreach (JToken solution_token in solution_set_list_token)
             {
-                var new_solution = new Solution(solution_token);
-                solutions[parameter_set_id][new_solution.id] = new_solution;
+                var solution = new Solution(solution_token);
+                solutions[solution.parameters_id][solution.id] = solution;
             }
         }
 
-        // Resolve references to hypotheses within each solution.
+        // Resolve hypothesis and parameter set references within each solution.
         foreach (int pset_id in solutions.Keys)
         {
             foreach (int solution_id in solutions[pset_id].Keys)
             {
+                // Resolve references to hypotheses.
                 foreach (int h_id in solutions[pset_id][solution_id].accepted_hypothesis_ids)
                 {
                     solutions[pset_id][solution_id].accepted_hypotheses.Add(
                         h_id, hypotheses[h_id]);
                 }
+                // Resolve reference to parameter set.
+                solutions[pset_id][solution_id].parameters = parameter_sets[pset_id];
             }
         }
 
@@ -234,6 +255,8 @@ public struct SensemakerData
     public KnowledgeGraph knowledge_graph;
     // Hypotheses keyed by their ids.
     public Dictionary<int, Hypothesis> hypotheses;
+    // Parameter sets keyed by their ids.
+    public Dictionary<int, ParameterSet> parameter_sets;
     // Solutions are keyed by parameter set id, then solution id.
     public Dictionary<int, Dictionary<int, Solution>> solutions;
 }

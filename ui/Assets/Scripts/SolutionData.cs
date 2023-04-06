@@ -26,6 +26,7 @@ public struct ParameterSet
 public class Solution
 {
     public int id;
+    public int parameters_id;
     public ParameterSet parameters;
     public List<int> accepted_hypothesis_ids;
     public Dictionary<int, Hypothesis> accepted_hypotheses;
@@ -33,7 +34,7 @@ public class Solution
     public Solution(JToken token)
     {
         this.id = (int)token["id"];
-        this.parameters = new ParameterSet(token["parameters"]);
+        this.parameters_id = (int)token["parameters"];
         this.accepted_hypothesis_ids = new List<int>();
         foreach (JToken h_id in token["accepted_hypotheses"])
         {
