@@ -75,7 +75,7 @@ class OtherHypEv(Evidence):
     # end __repr__
 # end class OtherHypEv
 
-class VisualSimilarityEvidence(Evidence):
+class VisualSimEv(Evidence):
     """
     Evidence consisting of the visual similarity between the appearance of two
     Objects.
@@ -132,7 +132,7 @@ class VisualSimilarityEvidence(Evidence):
     def __repr__(self):
         return (f'vsim {self.object_1}|{self.object_2}: {self.score}')
     # end __repr__
-# end class VisualSimilarityEvidence
+# end class VisualSimEv
 
 class AttributeSimilarityEvidence(Evidence):
     """
@@ -364,7 +364,7 @@ class SameObjectHyp(Hypothesis):
     If the Hypothesis is accepted, the two Objects would get a 'duplicate-of'
     Edge between them. 
 
-    Evidence is the VisualSimilarityEvidence between the two Objects'
+    Evidence is the VisualSimEv between the two Objects'
     appearances and the AttributeSimilarityEvidence between the two Objects'
     attributes.
 
@@ -384,7 +384,7 @@ class SameObjectHyp(Hypothesis):
         Initializes with the two Objects that are being hypothesized as
         duplicates of one another. 
 
-        Builds its own VisualSimilarityEvidence and AttributeSimilarityEvidence.
+        Builds its own VisualSimEv and AttributeSimilarityEvidence.
 
         Also makes the duplicate-of Edge that would be applied to both Objects.
         """
@@ -392,11 +392,11 @@ class SameObjectHyp(Hypothesis):
         self.object_2 = object_2
         name = (f'dup_h_{Hypothesis._next_id}_{object_1.name}_{object_2.name}')
         # Get the visual similarity evidence between the Objects.
-        vs_evidence = VisualSimilarityEvidence(object_1, object_2)
+        visual_sim_ev = VisualSimEv(object_1, object_2)
         # Get the attribute similarity between the Objects.
         as_evidence = AttributeSimilarityEvidence(object_1, object_2)
         # Use them as the Evidence for this Hypothesis.
-        super().__init__(name, [vs_evidence, as_evidence])
+        super().__init__(name, [visual_sim_ev, as_evidence])
         self.calculate_score()
         # Make the duplicate-of edge between the two Objects.
         self.edge = Edge(source=self.object_1, target=self.object_2,

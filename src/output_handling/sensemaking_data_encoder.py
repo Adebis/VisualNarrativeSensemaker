@@ -11,7 +11,7 @@ from commonsense.commonsense_data import (CommonSenseNode, CommonSenseEdge,
                                           FrameNetType, Synset)
 from hypothesis.hypothesis import (Evidence, ConceptEdgeEv, 
                                    OtherHypEv, 
-                                   VisualSimilarityEvidence,
+                                   VisualSimEv,
                                    AttributeSimilarityEvidence,
                                    Hypothesis,
                                    ConceptEdgeHyp,
@@ -54,8 +54,8 @@ class SensemakingDataEncoder(json.JSONEncoder):
             return self._encode_concept_edge_ev(o)
         elif isinstance(o, OtherHypEv):
             return self._encode_other_hyp_ev(o)
-        elif isinstance(o, VisualSimilarityEvidence):
-            return self._encode_visual_similarity_evidence(o)
+        elif isinstance(o, VisualSimEv):
+            return self._encode_visual_sim_ev(o)
         elif isinstance(o, AttributeSimilarityEvidence):
             return self._encode_attribute_similarity_evidence(o)
         elif isinstance(o, ConceptEdgeHyp):
@@ -301,19 +301,19 @@ class SensemakingDataEncoder(json.JSONEncoder):
         return evidence_dict
     # end _encode_other_hyp_ev
 
-    def _encode_visual_similarity_evidence(self, 
-                                        vs_evidence: VisualSimilarityEvidence):
+    def _encode_visual_sim_ev(self, 
+                                        visual_sim_ev: VisualSimEv):
         """
-        Encodes a piece of VisualSimilarityEvidence into a json serializable
+        Encodes a piece of VisualSimEv into a json serializable
         dict.
 
         object_1 and object_2 are encoded as Node ids.
         """
-        evidence_dict = self._encode_evidence(vs_evidence)
-        evidence_dict.update({'object_1': vs_evidence.object_1.id,
-                              'object_2': vs_evidence.object_2.id})
+        evidence_dict = self._encode_evidence(visual_sim_ev)
+        evidence_dict.update({'object_1': visual_sim_ev.object_1.id,
+                              'object_2': visual_sim_ev.object_2.id})
         return evidence_dict
-    # end _encode_visual_similarity_evidence
+    # end _encode_visual_sim_ev
 
     def _encode_attribute_similarity_evidence(self,
                                     as_evidence: AttributeSimilarityEvidence):

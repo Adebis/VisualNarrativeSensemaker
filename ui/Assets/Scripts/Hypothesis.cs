@@ -37,14 +37,14 @@ public class OtherHypEv : Evidence
     }
 }
 
-public class VisualSimilarityEvidence : Evidence
+public class VisualSimEv : Evidence
 {
     public int object_1_id;
     public ObjectNode object_1;
     public int object_2_id;
     public ObjectNode object_2;
 
-    public VisualSimilarityEvidence(JToken token) : base(token)
+    public VisualSimEv(JToken token) : base(token)
     {
         this.object_1_id = (int)token["object_1"];
         this.object_2_id = (int)token["object_2"];

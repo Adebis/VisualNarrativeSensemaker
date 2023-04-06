@@ -130,11 +130,11 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
                     oh_evidence.hypothesis = hypotheses[oh_evidence.hypothesis_id];
                 }
                 // Visual similarity evidence references two ObjectNodes.
-                else if (evidence is VisualSimilarityEvidence)
+                else if (evidence is VisualSimEv)
                 {
-                    var vs_evidence = (VisualSimilarityEvidence)evidence;
-                    vs_evidence.object_1 = (ObjectNode)knowledge_graph.nodes[vs_evidence.object_1_id];
-                    vs_evidence.object_2 = (ObjectNode)knowledge_graph.nodes[vs_evidence.object_2_id];
+                    var visual_sim_ev = (VisualSimEv)evidence;
+                    visual_sim_ev.object_1 = (ObjectNode)knowledge_graph.nodes[visual_sim_ev.object_1_id];
+                    visual_sim_ev.object_2 = (ObjectNode)knowledge_graph.nodes[visual_sim_ev.object_2_id];
                 }
                 // Attribute similarity evidence references two ObjectNodes.
                 else if (evidence is AttributeSimilarityEvidence)
