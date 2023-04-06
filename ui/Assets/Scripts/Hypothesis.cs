@@ -51,14 +51,14 @@ public class VisualSimEv : Evidence
     }
 }
 
-public class AttributeSimilarityEvidence : Evidence
+public class AttributeSimEv : Evidence
 {
     public int object_1_id;
     public ObjectNode object_1;
     public int object_2_id;
     public ObjectNode object_2;
 
-    public AttributeSimilarityEvidence(JToken token) : base(token)
+    public AttributeSimEv(JToken token) : base(token)
     {
         this.object_1_id = (int)token["object_1"];
         this.object_2_id = (int)token["object_2"];

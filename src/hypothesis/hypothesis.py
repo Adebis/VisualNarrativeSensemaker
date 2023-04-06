@@ -130,11 +130,11 @@ class VisualSimEv(Evidence):
     # end __init__
 
     def __repr__(self):
-        return (f'vsim {self.object_1}|{self.object_2}: {self.score}')
+        return (f'VisualSimEv: {self.object_1}|{self.object_2}: {self.score}')
     # end __repr__
 # end class VisualSimEv
 
-class AttributeSimilarityEvidence(Evidence):
+class AttributeSimEv(Evidence):
     """
     Evidence consisting of the similarity between the attributes of two Objects.
 
@@ -178,7 +178,7 @@ class AttributeSimilarityEvidence(Evidence):
         return (f'asim {self.object_1}|{self.object_2}: {self.score}')
     # end __repr__
 
-# end class AttributeSimilarityEvidence
+# end class AttributeSimEv
 
 class Hypothesis:
     """
@@ -365,7 +365,7 @@ class SameObjectHyp(Hypothesis):
     Edge between them. 
 
     Evidence is the VisualSimEv between the two Objects'
-    appearances and the AttributeSimilarityEvidence between the two Objects'
+    appearances and the AttributeSimEv between the two Objects'
     attributes.
 
     Attributes
@@ -384,7 +384,7 @@ class SameObjectHyp(Hypothesis):
         Initializes with the two Objects that are being hypothesized as
         duplicates of one another. 
 
-        Builds its own VisualSimEv and AttributeSimilarityEvidence.
+        Builds its own VisualSimEv and AttributeSimEv.
 
         Also makes the duplicate-of Edge that would be applied to both Objects.
         """
@@ -394,9 +394,9 @@ class SameObjectHyp(Hypothesis):
         # Get the visual similarity evidence between the Objects.
         visual_sim_ev = VisualSimEv(object_1, object_2)
         # Get the attribute similarity between the Objects.
-        as_evidence = AttributeSimilarityEvidence(object_1, object_2)
+        attribute_sim_ev = AttributeSimEv(object_1, object_2)
         # Use them as the Evidence for this Hypothesis.
-        super().__init__(name, [visual_sim_ev, as_evidence])
+        super().__init__(name, [visual_sim_ev, attribute_sim_ev])
         self.calculate_score()
         # Make the duplicate-of edge between the two Objects.
         self.edge = Edge(source=self.object_1, target=self.object_2,

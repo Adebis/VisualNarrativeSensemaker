@@ -137,11 +137,11 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
                     visual_sim_ev.object_2 = (ObjectNode)knowledge_graph.nodes[visual_sim_ev.object_2_id];
                 }
                 // Attribute similarity evidence references two ObjectNodes.
-                else if (evidence is AttributeSimilarityEvidence)
+                else if (evidence is AttributeSimEv)
                 {
-                    var as_evidence = (AttributeSimilarityEvidence)evidence;
-                    as_evidence.object_1 = (ObjectNode)knowledge_graph.nodes[as_evidence.object_1_id];
-                    as_evidence.object_2 = (ObjectNode)knowledge_graph.nodes[as_evidence.object_2_id];
+                    var attribute_sim_ev = (AttributeSimEv)evidence;
+                    attribute_sim_ev.object_1 = (ObjectNode)knowledge_graph.nodes[attribute_sim_ev.object_1_id];
+                    attribute_sim_ev.object_2 = (ObjectNode)knowledge_graph.nodes[attribute_sim_ev.object_2_id];
                 }
             }
             // Concept edge hypotheses reference two instance Nodes and an Edge.

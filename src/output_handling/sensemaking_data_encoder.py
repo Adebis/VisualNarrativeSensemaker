@@ -12,7 +12,7 @@ from commonsense.commonsense_data import (CommonSenseNode, CommonSenseEdge,
 from hypothesis.hypothesis import (Evidence, ConceptEdgeEv, 
                                    OtherHypEv, 
                                    VisualSimEv,
-                                   AttributeSimilarityEvidence,
+                                   AttributeSimEv,
                                    Hypothesis,
                                    ConceptEdgeHyp,
                                    NewObjectHyp,
@@ -56,8 +56,8 @@ class SensemakingDataEncoder(json.JSONEncoder):
             return self._encode_other_hyp_ev(o)
         elif isinstance(o, VisualSimEv):
             return self._encode_visual_sim_ev(o)
-        elif isinstance(o, AttributeSimilarityEvidence):
-            return self._encode_attribute_similarity_evidence(o)
+        elif isinstance(o, AttributeSimEv):
+            return self._encode_attribute_sim_ev(o)
         elif isinstance(o, ConceptEdgeHyp):
             return self._encode_concept_edge_hyp(o)
         elif isinstance(o, NewObjectHyp):
@@ -315,19 +315,19 @@ class SensemakingDataEncoder(json.JSONEncoder):
         return evidence_dict
     # end _encode_visual_sim_ev
 
-    def _encode_attribute_similarity_evidence(self,
-                                    as_evidence: AttributeSimilarityEvidence):
+    def _encode_attribute_sim_ev(self,
+                                    attribute_sim_ev: AttributeSimEv):
         """
-        Encodes a piece of AttributeSimilarityEvidence into a json serializable
+        Encodes a piece of AttributeSimEv into a json serializable
         dict.
 
         object_1 and object_2 are encoded as Node ids.
         """
-        evidence_dict = self._encode_evidence(as_evidence)
-        evidence_dict.update({'object_1': as_evidence.object_1.id,
-                              'object_2': as_evidence.object_2.id})
+        evidence_dict = self._encode_evidence(attribute_sim_ev)
+        evidence_dict.update({'object_1': attribute_sim_ev.object_1.id,
+                              'object_2': attribute_sim_ev.object_2.id})
         return evidence_dict
-    # end _encode_attribute_similarity_evidence
+    # end _encode_attribute_sim_ev
 
     def _encode_hypothesis(self, hypothesis: Hypothesis):
         """
