@@ -15,12 +15,12 @@ public class Evidence
     }
 }
 
-public class ConceptEdgeEvidence : Evidence
+public class ConceptEdgeEv : Evidence
 {
     public int edge_id;
     public Edge edge;
 
-    public ConceptEdgeEvidence(JToken token) : base(token)
+    public ConceptEdgeEv(JToken token) : base(token)
     {
         this.edge_id = (int)token["edge"];
     }

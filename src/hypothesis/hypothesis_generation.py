@@ -14,7 +14,7 @@ from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHyp,
                                    SameObjectHyp,
                                    PersistObjectHyp,
                                    ActionHypothesis, Evidence, 
-                                   ConceptEdgeEvidence)
+                                   ConceptEdgeEv)
 
 class HypothesisGenerator:
     """
@@ -389,7 +389,7 @@ class HypothesisGenerator:
                 # Instances that might be related to the hypothezied
                 # Action through a relationship between their Concepts. 
                 instances = knowledge_graph.get_concept_instances(other_concept)
-                # Make a piece of ConceptEdgeEvidence for each one. 
+                # Make a piece of ConceptEdgeEv for each one. 
 
                 # Organize the instance evidence by image index.
                 for instance in instances:
@@ -406,12 +406,12 @@ class HypothesisGenerator:
                     # Make evidence for this conceptually related Instance.
                     new_evidence = None
                     if edge.source == concept:
-                        new_evidence = ConceptEdgeEvidence(
+                        new_evidence = ConceptEdgeEv(
                             source_instance=new_actions[instance.get_image().id],
                             target_instance=instance,
                             edge=edge)
                     elif edge.target == concept:
-                        new_evidence= ConceptEdgeEvidence(
+                        new_evidence= ConceptEdgeEv(
                             source_instance=instance,
                             target_instance=new_actions[instance.get_image().id],
                             edge=edge)

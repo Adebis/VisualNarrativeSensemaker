@@ -9,7 +9,7 @@ from knowledge_graph.items import (Node, Concept, Instance, Object, Action,
                                    Edge, ConceptType, EdgeRelationship)
 from commonsense.commonsense_data import (CommonSenseNode, CommonSenseEdge, 
                                           FrameNetType, Synset)
-from hypothesis.hypothesis import (Evidence, ConceptEdgeEvidence, 
+from hypothesis.hypothesis import (Evidence, ConceptEdgeEv, 
                                    OtherHypothesisEvidence, 
                                    VisualSimilarityEvidence,
                                    AttributeSimilarityEvidence,
@@ -50,8 +50,8 @@ class SensemakingDataEncoder(json.JSONEncoder):
             return self._encode_scene_graph_object(o)
         elif isinstance(o, SceneGraphRelationship):
             return self._encode_scene_graph_relationship(o)
-        elif isinstance(o, ConceptEdgeEvidence):
-            return self._encode_concept_edge_evidence(o)
+        elif isinstance(o, ConceptEdgeEv):
+            return self._encode_concept_edge_ev(o)
         elif isinstance(o, OtherHypothesisEvidence):
             return self._encode_other_hypothesis_evidence(o)
         elif isinstance(o, VisualSimilarityEvidence):
@@ -278,16 +278,16 @@ class SensemakingDataEncoder(json.JSONEncoder):
                 'type': type(evidence).__name__}
     # end _encode_evidence
 
-    def _encode_concept_edge_evidence(self, ce_evidence: ConceptEdgeEvidence):
+    def _encode_concept_edge_ev(self, concept_edge_ev: ConceptEdgeEv):
         """
-        Encodes a piece of ConceptEdgeEvidence into a json serializble dict.
+        Encodes a piece of ConceptEdgeEv into a json serializble dict.
 
         edge is encoded as its Edge id.
         """
-        evidence_dict = self._encode_evidence(ce_evidence)
-        evidence_dict.update({'edge': ce_evidence.edge.id})
+        evidence_dict = self._encode_evidence(concept_edge_ev)
+        evidence_dict.update({'edge': concept_edge_ev.edge.id})
         return evidence_dict
-    # end _encode_concept_edge_evidence
+    # end _encode_concept_edge_ev
 
     def _encode_other_hypothesis_evidence(self, 
                                           oh_evidence: OtherHypothesisEvidence):

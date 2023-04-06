@@ -118,10 +118,10 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
             foreach (var evidence in hypothesis.evidence)
             {
                 // Concept edge evidence references an existing concept edge.
-                if (evidence is ConceptEdgeEvidence)
+                if (evidence is ConceptEdgeEv)
                 {
-                    var ce_evidence = (ConceptEdgeEvidence)evidence;
-                    ce_evidence.edge = knowledge_graph.edges[ce_evidence.edge_id];
+                    var concept_edge_ev = (ConceptEdgeEv)evidence;
+                    concept_edge_ev.edge = knowledge_graph.edges[concept_edge_ev.edge_id];
                 }
                 // Other hypothesis evidence refrences an existing hypotheiss.
                 else if (evidence is OtherHypothesisEvidence)

@@ -28,7 +28,7 @@ class Evidence:
     # end __init__
 # end Evidence
 
-class ConceptEdgeEvidence(Evidence):
+class ConceptEdgeEv(Evidence):
     """
     Evidence consisting of the Edge between two Concepts.
 
@@ -42,18 +42,18 @@ class ConceptEdgeEvidence(Evidence):
     def __init__(self, edge: Edge):
         super().__init__()
         self.edge = edge
-        # The score of a piece of ConceptEdgeEvidence is the weight of the Edge
+        # The score of a piece of ConceptEdgeEv is the weight of the Edge
         # between the two Concepts.
         self.score = edge.weight
     # end __init__
 
     def __str__(self):
-        return (f'ConceptEdgeEvidence: {self.edge.source} related to ' + 
+        return (f'ConceptEdgeEv: {self.edge.source} related to ' + 
                 f'{self.edge.target} through edge ' +
                 f'{self.edge}. Score: {self.score}')
     # end __str__
 
-# end class ConceptEdgeEvidence
+# end class ConceptEdgeEv
 
 class OtherHypothesisEvidence(Evidence):
     """
@@ -193,32 +193,17 @@ class Hypothesis:
     name : str
         A human-readable string identifier. Should be unique per Hypothesis,
         but doesn't have to be.
-    score : float
-        The total score for this hypothesis, for use in MOP solving. Default
-        value is 0. 
-    evidence : list[Evidence]
-        A list of Evidence related to this Hypothesis.
     premises : dict[int, Hypothesis]
         A set of other Hypotheses that must be accepted for this Hypothesis
         to be accepted. Keyed by Hypothesis id. Default value is the empty dict.
-
-    Methods
-    -------
-    calculate_score()
-        Calculates the score for this hypothesis and sets it in the score
-        attribute.
-
-        Each Hypothesis subtype calculates its score differently.
     """
     # Class variable to make unique IDs when a new hypothesis is made.
     _next_id = 0
 
-    def __init__(self, name: str, evidence: list[Evidence]):
+    def __init__(self, name: str):
         self.id = Hypothesis._next_id
         Hypothesis._next_id += 1
         self.name = name
-        self.score = 0
-        self.evidence = evidence
         self.premises = dict()
     # end __init__
 
@@ -228,17 +213,6 @@ class Hypothesis:
         """
         self.premises[premise.id] = premise
     # end add_premise
-
-    @abstractmethod
-    def calculate_score(self):
-        """
-        Calculates the score for this Hypothesis and sets it in the score
-        attribute.
-
-        Each Hypothesis subtype calculates its score differently.
-        """
-        pass
-    # end calculate_score
 
 # end class Hypothesis
 
@@ -250,7 +224,7 @@ class ConceptEdgeHyp(Hypothesis):
     If the Hypothesis is accepted, the two Instances would get the Concept Edge
     between them. 
 
-    Evidence for the Hypothesis is the ConceptEdgeEvidence between the two
+    Evidence for the Hypothesis is the ConceptEdgeEv between the two
     Instances' Concepts.
 
     Attributes
@@ -264,10 +238,14 @@ class ConceptEdgeHyp(Hypothesis):
     edge : Edge
         The Edge from the source Instance's Concept to the target Instance's 
         Concept.
+    concept_edge_ev : ConceptEdgeEv
+        The evidence consisting of the concept edge between the source
+        instance's concept and the target instance's concept.
     """
     source_instance: Instance
     target_instance: Instance
     edge: Edge
+    concept_edge_ev: ConceptEdgeEv
 
     def __init__(self, source_instance: Instance, target_instance: Instance, 
                  edge: Edge):
@@ -275,21 +253,20 @@ class ConceptEdgeHyp(Hypothesis):
         Initializes a ConceptEdgeHypothesis with the source and target Instances
         it's about and the Edge between the Instance's Concepts.
 
-        Makes its own ConceptEdgeEvidence out of the Edge that's passed in, so 
+        Makes its own ConceptEdgeEv out of the Edge that's passed in, so 
         no evidence needs to be provided.
         """
         # Name this hypothesis after the instances it's hypothesizing an edge
         # between and its id.
         name = (f'conceptedge_h_{Hypothesis._next_id}_{source_instance.name}_' + 
                 f'{target_instance.name}')
-        # Make evidence out of the edge passed in.
-        evidence = ConceptEdgeEvidence(edge)
-        super().__init__(name=name, evidence=[evidence])
+        super().__init__(name=name)
+        
         self.source_instance = source_instance
         self.target_instance = target_instance
         self.edge = edge
-
-        self.calculate_score()
+        # Make evidence out of the edge passed in.
+        self.concept_edge_ev = ConceptEdgeEv(edge)
     # end __init__
 
     def __repr__(self):
@@ -315,14 +292,6 @@ class ConceptEdgeHyp(Hypothesis):
                 else self.target_instance if self.source_instance == instance
                 else None)
     # end get_other_instance
-
-    def calculate_score(self):
-        score = 0
-        for evidence in self.evidence:
-            score += evidence.score
-        self.score = score
-        return score
-    # end calculate_score
 # end class ConceptEdgeHypothesis
 
 class NewObjectHyp(Hypothesis):
