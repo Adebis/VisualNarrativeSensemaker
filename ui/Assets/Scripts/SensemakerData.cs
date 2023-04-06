@@ -124,9 +124,9 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
                     concept_edge_ev.edge = knowledge_graph.edges[concept_edge_ev.edge_id];
                 }
                 // Other hypothesis evidence refrences an existing hypotheiss.
-                else if (evidence is OtherHypothesisEvidence)
+                else if (evidence is OtherHypEv)
                 {
-                    var oh_evidence = (OtherHypothesisEvidence)evidence;
+                    var oh_evidence = (OtherHypEv)evidence;
                     oh_evidence.hypothesis = hypotheses[oh_evidence.hypothesis_id];
                 }
                 // Visual similarity evidence references two ObjectNodes.

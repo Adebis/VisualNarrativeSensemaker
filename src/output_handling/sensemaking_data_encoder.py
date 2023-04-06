@@ -10,7 +10,7 @@ from knowledge_graph.items import (Node, Concept, Instance, Object, Action,
 from commonsense.commonsense_data import (CommonSenseNode, CommonSenseEdge, 
                                           FrameNetType, Synset)
 from hypothesis.hypothesis import (Evidence, ConceptEdgeEv, 
-                                   OtherHypothesisEvidence, 
+                                   OtherHypEv, 
                                    VisualSimilarityEvidence,
                                    AttributeSimilarityEvidence,
                                    Hypothesis,
@@ -52,8 +52,8 @@ class SensemakingDataEncoder(json.JSONEncoder):
             return self._encode_scene_graph_relationship(o)
         elif isinstance(o, ConceptEdgeEv):
             return self._encode_concept_edge_ev(o)
-        elif isinstance(o, OtherHypothesisEvidence):
-            return self._encode_other_hypothesis_evidence(o)
+        elif isinstance(o, OtherHypEv):
+            return self._encode_other_hyp_ev(o)
         elif isinstance(o, VisualSimilarityEvidence):
             return self._encode_visual_similarity_evidence(o)
         elif isinstance(o, AttributeSimilarityEvidence):
@@ -289,17 +289,17 @@ class SensemakingDataEncoder(json.JSONEncoder):
         return evidence_dict
     # end _encode_concept_edge_ev
 
-    def _encode_other_hypothesis_evidence(self, 
-                                          oh_evidence: OtherHypothesisEvidence):
+    def _encode_other_hyp_ev(self, 
+                                          oh_evidence: OtherHypEv):
         """
-        Encodes a piece of OtherHypothesisEvidence into a json serializable dict.
+        Encodes a piece of OtherHypEv into a json serializable dict.
 
         hypothesis is encoded as the hypothesis' id.
         """
         evidence_dict = self._encode_evidence(oh_evidence)
         evidence_dict.update({'hypothesis': oh_evidence.hypothesis.id})
         return evidence_dict
-    # end _encode_other_hypothesis_evidence
+    # end _encode_other_hyp_ev
 
     def _encode_visual_similarity_evidence(self, 
                                         vs_evidence: VisualSimilarityEvidence):

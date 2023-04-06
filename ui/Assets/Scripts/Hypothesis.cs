@@ -26,12 +26,12 @@ public class ConceptEdgeEv : Evidence
     }
 }
 
-public class OtherHypothesisEvidence : Evidence
+public class OtherHypEv : Evidence
 {
     public int hypothesis_id;
     public Hypothesis hypothesis;
 
-    public OtherHypothesisEvidence(JToken token) : base(token)
+    public OtherHypEv(JToken token) : base(token)
     {
         this.hypothesis_id = (int)token["hypothesis"];
     }

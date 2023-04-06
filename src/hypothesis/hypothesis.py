@@ -55,7 +55,7 @@ class ConceptEdgeEv(Evidence):
 
 # end class ConceptEdgeEv
 
-class OtherHypothesisEvidence(Evidence):
+class OtherHypEv(Evidence):
     """
     Evidence consisting of another Hypothesis.
 
@@ -67,15 +67,13 @@ class OtherHypothesisEvidence(Evidence):
     def __init__(self, hypothesis):
         super().__init__()
         self.hypothesis = hypothesis
-        # The score of a piece of OtherHypothesisEvidence is the score of the
-        # other Hypothesis.
-        self.score = hypothesis.score
+        self.score = 0
     # end __init__
 
     def __repr__(self):
-        return (f'h ev: {self.hypothesis}')
+        return (f'OtherHypEv: {self.hypothesis}')
     # end __repr__
-# end class OtherHypothesisEvidence
+# end class OtherHypEv
 
 class VisualSimilarityEvidence(Evidence):
     """
@@ -301,7 +299,7 @@ class NewObjectHyp(Hypothesis):
     If the Hypothesis is accepted, the hypothetical Object would be added to
     the KnowledgeGraph.
 
-    Evidence for this Hypothesis is the OtherHypothesisEvidence for a series of 
+    Evidence for this Hypothesis is the OtherHypEv for a series of 
     ConceptEdgeHypotheses, each hypothesizing an Edge between the hypothetical 
     Object's Concept and another Object's Concept in the same scene.
 
@@ -322,16 +320,16 @@ class NewObjectHyp(Hypothesis):
         the ConceptEdgeHypotheses between it and the other Objects in its
         scene. 
 
-        Makes its own OtherHypothesisEvidence out of the ConceptEdgeHypotheses
+        Makes its own OtherHypEv out of the ConceptEdgeHypotheses
         passed in, so no Evidence needs to be provided.
 
         Also sets itself as a premise for every ConceptEdgeHypothesis provided
         to it. 
         """
         name = (f'offobj_h_{Hypothesis._next_id}_{obj.name}')
-        # Make OtherHypothesisEvidence for each concept edge hypothesis passed
+        # Make OtherHypEv for each concept edge hypothesis passed
         # in.
-        evidence = [OtherHypothesisEvidence(h) for h in concept_edge_hyps]
+        evidence = [OtherHypEv(h) for h in concept_edge_hyps]
         super().__init__(name=name, evidence=evidence)
         # Make this Hypothesis a premise of every ConceptEdgeHypothesis passed
         # in, since they wouldn't exist without this Hypothesis' hypothetical
@@ -472,16 +470,16 @@ class PersistObjectHyp(Hypothesis):
         Initializes with the existing Object that's hypothesized to persist,
         its NewObjectHyp, and its SameObjectHyp.
 
-        Builds its own OtherHypothesisEvidence.
+        Builds its own OtherHypEv.
         """
         self.object_ = object_
         self.new_object_hyp = new_object_hyp
         self.object_dulpicate_hypothesis = object_dulpicate_hypothesis
         evidence = list()
         evidence.append(
-            OtherHypothesisEvidence(new_object_hyp))
+            OtherHypEv(new_object_hyp))
         evidence.append(
-            OtherHypothesisEvidence(object_dulpicate_hypothesis))
+            OtherHypEv(object_dulpicate_hypothesis))
         name = (f'objpersist_h_{Hypothesis._next_id}_{object_.name}')
         super().__init__(name=name, evidence=evidence)
         # Adds the two Hypotheses used as evidence as premises to this
