@@ -289,8 +289,7 @@ class SensemakingDataEncoder(json.JSONEncoder):
         return evidence_dict
     # end _encode_concept_edge_ev
 
-    def _encode_other_hyp_ev(self, 
-                                          oh_evidence: OtherHypEv):
+    def _encode_other_hyp_ev(self, oh_evidence: OtherHypEv):
         """
         Encodes a piece of OtherHypEv into a json serializable dict.
 
@@ -339,8 +338,6 @@ class SensemakingDataEncoder(json.JSONEncoder):
         """
         return {'id': hypothesis.id,
                 'name': hypothesis.name,
-                'score': hypothesis.score,
-                'evidence': hypothesis.evidence,
                 'premises': [h_id for h_id in hypothesis.premises.keys()],
                 'type': type(hypothesis).__name__}
     # end _encode_hypothesis
@@ -356,12 +353,12 @@ class SensemakingDataEncoder(json.JSONEncoder):
         h_dict = self._encode_hypothesis(concept_edge_hyp)
         h_dict.update({'source_instance': concept_edge_hyp.source_instance.id,
                        'target_instance': concept_edge_hyp.target_instance.id,
-                       'edge': concept_edge_hyp.edge.id})
+                       'edge': concept_edge_hyp.edge.id,
+                       'concept_edge_ev': concept_edge_hyp.concept_edge_ev})
         return h_dict
     # end _encode_concept_edge_hyp
 
-    def _encode_new_object_hyp(self, 
-            obj_hypothesis: NewObjectHyp):
+    def _encode_new_object_hyp(self, obj_hypothesis: NewObjectHyp):
         """
         Encodes a NewObjectHyp into a json serializable dict.
 
@@ -373,7 +370,9 @@ class SensemakingDataEncoder(json.JSONEncoder):
         h_dict = self._encode_hypothesis(obj_hypothesis)
         h_dict.update({'object': obj_hypothesis.obj.id,
                        'concept_edge_hyps': [h.id for h in 
-                                        obj_hypothesis.concept_edge_hyps]})
+                                        obj_hypothesis.concept_edge_hyps],
+                       'concept_edge_hyp_ev': [e for e in 
+                                        obj_hypothesis.concept_edge_hyp_ev]})
         return h_dict
     # end _encode_new_object_hyp
 
@@ -390,24 +389,26 @@ class SensemakingDataEncoder(json.JSONEncoder):
         h_dict = self._encode_hypothesis(same_object_hyp)
         h_dict.update({'object_1': same_object_hyp.object_1.id,
                        'object_2': same_object_hyp.object_2.id,
-                       'edge': same_object_hyp.edge})
+                       'edge': same_object_hyp.edge,
+                       'visual_sim_ev': same_object_hyp.visual_sim_ev,
+                       'attribute_sim_ev': same_object_hyp.attribute_sim_ev})
         return h_dict
     # end _encode_same_object_hyp
 
-    def _encode_persist_object_hyp(self, 
-                                    persist_object_hyp: PersistObjectHyp):
+    def _encode_persist_object_hyp(self, persist_object_hyp: PersistObjectHyp):
         """
         Encodes a PersistObjectHyp into a json serializable dict.
 
         object_ is encoded as its Node id.
 
-        new_object_hyp and same_object_hyp are
-        encoded as their ids.
+        new_object_hyp and same_object_hyp are encoded as their ids.
         """
         h_dict = self._encode_hypothesis(persist_object_hyp)
         h_dict.update({'object_': persist_object_hyp.object_.id,
             'new_object_hyp': persist_object_hyp.new_object_hyp.id,
-            'same_object_hyp': persist_object_hyp.object_dulpicate_hypothesis.id})
+            'same_object_hyp': persist_object_hyp.same_object_hyp.id,
+            'new_object_hyp_ev': persist_object_hyp.new_object_hyp_ev,
+            'same_object_hyp_ev': persist_object_hyp.same_object_hyp_ev})
         return h_dict
     # end _encode_persist_object_hyp
 

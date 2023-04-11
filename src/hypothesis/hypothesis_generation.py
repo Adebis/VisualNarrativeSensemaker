@@ -39,7 +39,7 @@ class HypothesisGenerator:
         #hypotheses.update(action_hypotheses)
 
         # Make ConceptEdgeHypotheses between all observed Instances.
-        observation_hypotheses = self._hypothesize_for_observations(
+        observation_hypotheses = self._make_concept_edge_hyps(
             knowledge_graph)
         hypotheses.update({h.id: h for h in observation_hypotheses})
 
@@ -51,7 +51,7 @@ class HypothesisGenerator:
         return hypotheses
     # end generate_hypotheses
 
-    def _hypothesize_for_observations(self, knowledge_graph: KnowledgeGraph):
+    def _make_concept_edge_hyps(self, knowledge_graph: KnowledgeGraph):
         """
         Makes concept edge hypotheses between all observed Instances in 
         the knowledge graph with every other observed Instance in the same scene. 
@@ -93,7 +93,7 @@ class HypothesisGenerator:
             # end for
         # end for
         return new_hypotheses
-    # _hypothesize_for_observations
+    # _make_concept_edge_hyps
 
     def _hypothesize_concept_edge(self, instance_1: Instance, 
                                   instance_2: Instance):
@@ -147,37 +147,38 @@ class HypothesisGenerator:
 
         for current_object in all_objects:
             # Get all the images the Object is NOT in.
-            absent_images = list()
-            for image in knowledge_graph.images.values():
-                if not image.id in current_object.images:
-                    absent_images.append(image)
-            # end for
-
+            absent_images = [image for image in knowledge_graph.images.values()
+                             if not image.id in current_object.images]
             for image in absent_images:
-                # Go through each observed Object in this image and make an
+                # Go through each Object in this image and make a
                 # SameObjectHyp with any of them whose Concepts
                 # overlap with this current Object.
-                scene_instances = knowledge_graph.get_scene_instances(image)
-                for scene_instance in scene_instances:
-                    # Only check other Objects.
-                    if not type(scene_instance) == Object:
-                        continue
+                scene_objects = [o for o in all_objects 
+                                 if o.get_image() == image]
+                for scene_object in scene_objects:
                     # See if any of the concepts overlap.
+                    # If they do, make a SameObjectHyp.
                     for concept in current_object.concepts:
-                        if scene_instance.has_concept(concept):
-                            # If they do, make an SameObjectHyp.
+                        if scene_object.has_concept(concept):
+                            # Don't make this same object hypothesis if a
+                            # duplicate one already exists in the other
+                            # direction. 
+                            duplicate_hyps = [h for h in all_new_hypotheses
+                                              if type(h) == SameObjectHyp and
+                                              h.has_object(current_object) and
+                                              h.has_object(scene_object)]
+                            if len(duplicate_hyps) > 0:
+                                break
                             new_od_h = SameObjectHyp(
                                 object_1=current_object,
-                                object_2=scene_instance)
+                                object_2=scene_object)
                             all_new_hypotheses.append(new_od_h)
                             break
                         # end if
                     # end for
-                # end for scene_instance in scene_instances
-
+                # end for scene_object in scene_objects
             # end for image in absent_images
-
-        # end for current_object in all_objects.values()
+        # end for current_object in all_objects
 
         return all_new_hypotheses
     # end _hypothesize_for_continuity
@@ -262,7 +263,7 @@ class HypothesisGenerator:
                 persist_object_hyp = PersistObjectHyp(
                     object_ = new_object,
                     new_object_hyp=new_object_hyp,
-                    object_dulpicate_hypothesis=same_object_hyp)
+                    same_object_hyp=same_object_hyp)
                 
                 # Premise both the object duplicate hypothesis and the offscreen
                 # object hypothesis on the offscreen persistence hypothesis, as
@@ -448,4 +449,5 @@ class HypothesisGenerator:
         return action_hypotheses
     # end _generate_action_hypotheses
 
-# end class
+# end class HypothesisGenerator
+

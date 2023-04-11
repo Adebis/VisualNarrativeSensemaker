@@ -114,36 +114,7 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
             {
                 hypothesis.premises[premise_id] = hypotheses[premise_id];
             }
-            // Resolve evidence references.
-            foreach (var evidence in hypothesis.evidence)
-            {
-                // Concept edge evidence references an existing concept edge.
-                if (evidence is ConceptEdgeEv)
-                {
-                    var concept_edge_ev = (ConceptEdgeEv)evidence;
-                    concept_edge_ev.edge = knowledge_graph.edges[concept_edge_ev.edge_id];
-                }
-                // Other hypothesis evidence refrences an existing hypotheiss.
-                else if (evidence is OtherHypEv)
-                {
-                    var oh_evidence = (OtherHypEv)evidence;
-                    oh_evidence.hypothesis = hypotheses[oh_evidence.hypothesis_id];
-                }
-                // Visual similarity evidence references two ObjectNodes.
-                else if (evidence is VisualSimEv)
-                {
-                    var visual_sim_ev = (VisualSimEv)evidence;
-                    visual_sim_ev.object_1 = (ObjectNode)knowledge_graph.nodes[visual_sim_ev.object_1_id];
-                    visual_sim_ev.object_2 = (ObjectNode)knowledge_graph.nodes[visual_sim_ev.object_2_id];
-                }
-                // Attribute similarity evidence references two ObjectNodes.
-                else if (evidence is AttributeSimEv)
-                {
-                    var attribute_sim_ev = (AttributeSimEv)evidence;
-                    attribute_sim_ev.object_1 = (ObjectNode)knowledge_graph.nodes[attribute_sim_ev.object_1_id];
-                    attribute_sim_ev.object_2 = (ObjectNode)knowledge_graph.nodes[attribute_sim_ev.object_2_id];
-                }
-            }
+
             // Concept edge hypotheses reference two instance Nodes and an Edge.
             if (hypothesis is ConceptEdgeHyp)
             {
@@ -151,6 +122,9 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
                 ce_h.source_instance = knowledge_graph.nodes[ce_h.source_instance_id];
                 ce_h.target_instance = knowledge_graph.nodes[ce_h.target_instance_id];
                 ce_h.edge = knowledge_graph.edges[ce_h.edge_id];
+                // It also has concept edge evidence which references an
+                // existing concept edge.
+                ce_h.concept_edge_ev.edge = knowledge_graph.edges[ce_h.edge_id];
             }
             // Object hypotheses reference a set of concept edge hypotheses
             // and an ObjectNode.
@@ -171,6 +145,12 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
                 {
                     obj_h.obj.images[image_id] = knowledge_graph.images[image_id];
                 }
+                // It also has a list of OtherHypEv which references other
+                // hypotheses.
+                foreach (var ce_edge_h_ev in obj_h.concept_edge_hyp_ev.Values)
+                {
+                    ce_edge_h_ev.hypothesis = hypotheses[ce_edge_h_ev.hypothesis_id];
+                }
             }
             // Object duplicate hypotheses reference two ObjectNodes.
             // Its Edge references two Nodes.
@@ -181,15 +161,24 @@ public class SensemakerDataConverter : JsonCreationConverter<SensemakerData>
                 od_h.object_2 = (ObjectNode)knowledge_graph.nodes[od_h.object_2_id];
                 od_h.edge.source = knowledge_graph.nodes[od_h.edge.source_id];
                 od_h.edge.target = knowledge_graph.nodes[od_h.edge.target_id];
+                // It also has visual and attribute similarity evidence, both of
+                // which reference ObjectNodes
+                od_h.visual_sim_ev.object_1 = od_h.object_1;
+                od_h.visual_sim_ev.object_2 = od_h.object_2;
+                od_h.attribute_sim_ev.object_1 = od_h.object_1;
+                od_h.attribute_sim_ev.object_2 = od_h.object_2;
             }
-            // Object persistence hypotheses reference an object node, an
+            // Persist object hypotheses reference an object node, an
             // offscreen object hypothesis, and an object duplicate hypothesis.
             else if (hypothesis is PersistObjectHyp)
             {
                 var op_h = (PersistObjectHyp)hypothesis;
                 op_h.object_ = (ObjectNode)knowledge_graph.nodes[op_h.object_id];
-                op_h.new_object_hyp = (NewObjectHyp)hypotheses[op_h.offscreen_obj_h_id];
+                op_h.new_object_hyp = (NewObjectHyp)hypotheses[op_h.new_object_h_id];
                 op_h.same_object_hyp = (SameObjectHyp)hypotheses[op_h.same_object_h_id];
+                // It also has other hypothersis evidence.
+                op_h.new_object_hyp_ev.hypothesis = op_h.new_object_hyp;
+                op_h.same_object_hyp_ev.hypothesis = op_h.same_object_hyp;
             }
         }
         return hypotheses;

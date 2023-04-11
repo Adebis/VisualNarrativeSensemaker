@@ -85,7 +85,7 @@ class SenseMaker:
         hypotheses = hypothesis_generator.generate_hypotheses(knowledge_graph)
         print(f'Done generating hypotheses.' + 
               f' Time taken: {timer() - timers["h_gen_start"]}')
-        
+
         timers['h_eval_start'] = timer()
         print(f'Evaluating hypotheses...')
         all_solutions = self._evaluate_hypotheses(

@@ -3,6 +3,8 @@ from abc import abstractmethod
 import cv2
 from image_similarity_measures import quality_metrics
 
+import constants as const
+
 from knowledge_graph.items import (Concept, Instance, Object, Action, Edge,
                                    EdgeRelationship)
 
@@ -14,7 +16,7 @@ class Evidence:
     ----------
     id : int
         A unique int identifier for this evidence.
-    score : int
+    score : float
         The Evidence's score. For use in MOOP solving.
     """
     # Class variable for making unique ids whenever a new piece of evidence is 
@@ -175,7 +177,7 @@ class AttributeSimEv(Evidence):
     # end __init__
 
     def __repr__(self):
-        return (f'asim {self.object_1}|{self.object_2}: {self.score}')
+        return (f'AttributeSimEv {self.object_1}|{self.object_2}: {self.score}')
     # end __repr__
 
 # end class AttributeSimEv
@@ -211,6 +213,29 @@ class Hypothesis:
         """
         self.premises[premise.id] = premise
     # end add_premise
+
+    def get_premise_individual_score(self):
+        """
+        Gets the sum contribution of each of this hypothesis' premises to its
+        individual score.
+        """
+        # Gives the individual score a large negative value for each premise
+        # so that this hypothesis will not be accepted without its premise.
+        return -len(self.premises) * const.H_SCORE_OFFSET
+    # end _get_premise_individual_score
+
+    def get_premise_paired_scores(self) -> dict[int, float]:
+        """
+        Gets the contribution of each of this hypothesis' premises to its
+        paired scores.
+
+        Returns a dictionary of scores keyed by hypothesis id.
+        """
+        # Gives each pair score a large positive value to counter the large
+        # negative value in _get_premise_individual_score, allowing this
+        # hypothesis to be accepted if its premise hypothesis is accepted.
+        return {h.id: const.H_SCORE_OFFSET for h in self.premises.values()}
+    # end _get_premise_paired_scores
 
 # end class Hypothesis
 
@@ -248,7 +273,7 @@ class ConceptEdgeHyp(Hypothesis):
     def __init__(self, source_instance: Instance, target_instance: Instance, 
                  edge: Edge):
         """
-        Initializes a ConceptEdgeHypothesis with the source and target Instances
+        Initializes a ConceptEdgeHyp with the source and target Instances
         it's about and the Edge between the Instance's Concepts.
 
         Makes its own ConceptEdgeEv out of the Edge that's passed in, so 
@@ -272,24 +297,14 @@ class ConceptEdgeHyp(Hypothesis):
                 f'->{self.target_instance}. Score: {self.score}')
     # end __str__
 
-    def has_instance(self, instance: Instance):
+    def get_individual_score(self):
         """
-        Whether or not this Hypothesis has an Instance as either its source
-        instance or its target instance.
+        Gets the score for accepting this hypothesis alone.
         """
-        return (True if (self.source_instance == instance or 
-                         self.target_instance == instance) else False)
-    # end has_instance
+        individual_score = self.concept_edge_ev.score
+        return individual_score
+    # end get_individual_score
 
-    def get_other_instance(self, instance: Instance):
-        """
-        Gets the Instance in this scene which is not the one passed in. Returns
-        None if neither Instance is the one passed in.
-        """
-        return (self.source_instance if self.target_instance == instance
-                else self.target_instance if self.source_instance == instance
-                else None)
-    # end get_other_instance
 # end class ConceptEdgeHypothesis
 
 class NewObjectHyp(Hypothesis):
@@ -310,9 +325,14 @@ class NewObjectHyp(Hypothesis):
     concept_edge_hyps : list[Hypothesis]
         The hypothesized Concept Edges from the hypothesized Object's Concept
         to each other Instance's Concept in the same scene.
+    concept_edge_hyp_ev : list[OtherHypEv]
+        The other hypothesis evidence consisting of evidence made out of the
+        concept edge hypotheses from the hypothesized Object's Concept to each
+        other Instance's Concept in the same scene.
     """
     obj: Object
     concept_edge_hyps: list[Hypothesis]
+    concept_edge_hyp_ev: list[OtherHypEv]
 
     def __init__(self, obj: Object, concept_edge_hyps: list[Hypothesis]):
         """
@@ -327,10 +347,7 @@ class NewObjectHyp(Hypothesis):
         to it. 
         """
         name = (f'offobj_h_{Hypothesis._next_id}_{obj.name}')
-        # Make OtherHypEv for each concept edge hypothesis passed
-        # in.
-        evidence = [OtherHypEv(h) for h in concept_edge_hyps]
-        super().__init__(name=name, evidence=evidence)
+        super().__init__(name=name)
         # Make this Hypothesis a premise of every ConceptEdgeHypothesis passed
         # in, since they wouldn't exist without this Hypothesis' hypothetical
         # Instance.
@@ -338,23 +355,22 @@ class NewObjectHyp(Hypothesis):
             hypothesis.add_premise(premise=self)
         self.obj = obj
         self.concept_edge_hyps = concept_edge_hyps
-
-        self.calculate_score()
+        # Make OtherHypEv for each concept edge hypothesis passed in.
+        self.concept_edge_hyp_ev = [OtherHypEv(h) for h in concept_edge_hyps]
     # end __init__
 
     def __repr__(self):
         return (f'{self.name}. ' + 
-                f'Concept edges: {len(self.concept_edge_hyps)}. ' + 
-                f'Score: {self.score}')
+                f'Concept edges: {len(self.concept_edge_hyps)}. ')
     # end __repr__
 
-    def calculate_score(self):
-        score = 0
-        for evidence in self.evidence:
-            score += evidence.score
-        self.score = score
-        return score
-    # end calculate_score
+    def get_individual_score(self):
+        """
+        Gets the score for accepting this hypothesis alone.
+        """
+        individual_score = 0
+        return individual_score
+    # end get_individual_score
 # end NewObjectHyp
 
 class SameObjectHyp(Hypothesis):
@@ -377,6 +393,12 @@ class SameObjectHyp(Hypothesis):
     edge : Edge
         The 'duplicate-of' edge between object 1 and object 2. The weight of
         the edge represents the similarity between the two Objects.
+    visual_sim_ev : VisualSimEv
+        Evidence consisting of the visual similarity between object 1 and object
+        2.
+    attribute_sim_ev : AttributeSimEv
+        Evidence consisting of the attribute similarity between object 1 and
+        object 2.
     """
 
     def __init__(self, object_1: Object, object_2: Object):
@@ -388,27 +410,20 @@ class SameObjectHyp(Hypothesis):
 
         Also makes the duplicate-of Edge that would be applied to both Objects.
         """
+        name = (f'dup_h_{Hypothesis._next_id}_{object_1.name}_{object_2.name}')
+        super().__init__(name)
         self.object_1 = object_1
         self.object_2 = object_2
-        name = (f'dup_h_{Hypothesis._next_id}_{object_1.name}_{object_2.name}')
-        # Get the visual similarity evidence between the Objects.
-        visual_sim_ev = VisualSimEv(object_1, object_2)
-        # Get the attribute similarity between the Objects.
-        attribute_sim_ev = AttributeSimEv(object_1, object_2)
-        # Use them as the Evidence for this Hypothesis.
-        super().__init__(name, [visual_sim_ev, attribute_sim_ev])
-        self.calculate_score()
-        # Make the duplicate-of edge between the two Objects.
+        self.visual_sim_ev = VisualSimEv(object_1, object_2)
+        self.attribute_sim_ev = AttributeSimEv(object_1, object_2)
         self.edge = Edge(source=self.object_1, target=self.object_2,
                          relationship=str(EdgeRelationship.DUPLICATE_OF), 
-                         weight=self.score,
+                         weight=self.get_individual_score(),
                          hypothesized=True)
     # end __init__
 
     def __repr__(self):
-        return (f'{self.name}. ' + 
-                f'Evidence: {self.evidence[0]}, {self.evidence[1]} ' + 
-                f'Score: {self.score}')
+        return (f'{self.object_1}->duplicate-of->{self.object_2}')
     # end __repr__
 
     def has_object(self, object: Object):
@@ -431,13 +446,15 @@ class SameObjectHyp(Hypothesis):
                 None)
     # end get_other_object
 
-    def calculate_score(self):
-        score = 0
-        for evidence in self.evidence:
-            score += evidence.score
-        self.score = score
-        return score
-    # end calculate_score
+    def get_individual_score(self):
+        """
+        Gets the score for accepting this hypothesis alone.
+        """
+        # Add each similarity evidence's score.
+        individual_score = self.visual_sim_ev.score
+        individual_score += self.attribute_sim_ev.score
+        return individual_score
+    # end get_individual_score
 
 # end class SameObjectHyp
 
@@ -461,40 +478,45 @@ class PersistObjectHyp(Hypothesis):
     same_object_hyp : SameObjectHyp
         The hypothesis hypothesizing that the copy of the persisting object is
         its duplicate. 
+    new_object_hyp_ev : OtherHypEv
+        Evidence consisting of a new object hypothesis hypothesizing that a copy 
+        of the persisting object exists in another image.
+    same_object_hyp_ev : OtherHypEv
+        Evidence consisting of a same object hypothesis hypothesizing that the
+        copy of the persisting object in the other image is the same as the
+        original object it's a copy of. 
     """
 
     def __init__(self, object_: Object, 
                  new_object_hyp: NewObjectHyp,
-                 object_dulpicate_hypothesis: SameObjectHyp):
+                 same_object_hyp: SameObjectHyp):
         """
         Initializes with the existing Object that's hypothesized to persist,
         its NewObjectHyp, and its SameObjectHyp.
 
         Builds its own OtherHypEv.
         """
+        name = (f'objpersist_h_{Hypothesis._next_id}_{object_.name}')
+        super().__init__(name=name)
         self.object_ = object_
         self.new_object_hyp = new_object_hyp
-        self.object_dulpicate_hypothesis = object_dulpicate_hypothesis
-        evidence = list()
-        evidence.append(
-            OtherHypEv(new_object_hyp))
-        evidence.append(
-            OtherHypEv(object_dulpicate_hypothesis))
-        name = (f'objpersist_h_{Hypothesis._next_id}_{object_.name}')
-        super().__init__(name=name, evidence=evidence)
+        self.new_object_hyp_ev = OtherHypEv(new_object_hyp)
+        self.same_object_hyp = same_object_hyp
+        self.same_object_hyp_ev = OtherHypEv(same_object_hyp)
         # Adds the two Hypotheses used as evidence as premises to this
         # hypothesis.
         self.add_premise(new_object_hyp)
-        self.add_premise(object_dulpicate_hypothesis)
+        self.add_premise(same_object_hyp)
     # end __init__
 
-    def calculate_score(self):
-        score = 0
-        for evidence in self.evidence:
-            score += evidence.score
-        self.score = score
-        return score
-    # end calculate_score
+    def get_individual_score(self):
+        """
+        Gets the score for accepting this hypothesis alone.
+        """
+        individual_score = 0
+        return individual_score
+    # end get_individual_score
+
 # end PersistObjectHyp
 
 
