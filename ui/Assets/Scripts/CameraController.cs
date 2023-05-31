@@ -15,6 +15,7 @@ public class CameraController : MonoBehaviour
     public float minimum_size;
     // All speeds are scaled to the current camera size.
     // Use this value to set a baseline camera size. 
+    private float base_size = 500;
 
     // Variables to help with movement.
     // The next position the camera will move towards.
@@ -39,32 +40,32 @@ public class CameraController : MonoBehaviour
         // WASD pans the camera.
         if (Input.GetKey(KeyCode.W))
         {
-            this.next_position += new Vector3(0, this.key_pan_speed, 0);
+            this.next_position += new Vector3(0, this.KeyPanSpeed, 0);
         }
         if (Input.GetKey(KeyCode.A))
         {
-            this.next_position += new Vector3(-this.key_pan_speed, 0, 0);
+            this.next_position += new Vector3(-this.KeyPanSpeed, 0, 0);
         }
         if (Input.GetKey(KeyCode.S))
         {
-            this.next_position += new Vector3(0, -this.key_pan_speed, 0);
+            this.next_position += new Vector3(0, -this.KeyPanSpeed, 0);
         }
         if (Input.GetKey(KeyCode.D))
         {
-            this.next_position += new Vector3(this.key_pan_speed, 0, 0);
+            this.next_position += new Vector3(this.KeyPanSpeed, 0, 0);
         }
         // Right click and drag pans the camera.
         if (Input.GetMouseButton(1))
         {
             float x_delta = Input.GetAxis("Mouse X");
             float y_delta = Input.GetAxis("Mouse Y");
-            this.next_position += new Vector3(-x_delta, -y_delta, 0) * this.mouse_pan_speed;
+            this.next_position += new Vector3(-x_delta, -y_delta, 0) * this.MousePanSpeed;
         }
 
         // Mouse wheel zooms the camera.
         if (Input.mouseScrollDelta.y != 0)
         {
-            this.next_size += -Input.mouseScrollDelta.y * this.zoom_speed;
+            this.next_size += -Input.mouseScrollDelta.y * this.ZoomSpeed;
         }
 
         // Clamp the size.
@@ -107,5 +108,28 @@ public class CameraController : MonoBehaviour
     public void SetNextSize(float next_size)
     {
         this.next_size = next_size;
+    }
+
+    // Scale all speeds to the size of the camera.
+    public float KeyPanSpeed
+    {
+        get
+        {
+            return this.key_pan_speed * (this.camera.orthographicSize / this.base_size);
+        }
+    }
+    public float MousePanSpeed
+    {
+        get
+        {
+            return this.mouse_pan_speed * (this.camera.orthographicSize / this.base_size);
+        }
+    }
+    public float ZoomSpeed
+    {
+        get
+        {
+            return this.zoom_speed;
+        }
     }
 }

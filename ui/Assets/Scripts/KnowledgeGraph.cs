@@ -116,7 +116,7 @@ public class KnowledgeGraph
                 // Some actions don't have objects.
                 if (action_node.object_id is not null)
                 {
-                    action_node.obj = (ObjectNode)this.nodes[(int)action_node.object_id];
+                    action_node.object_ = (ObjectNode)this.nodes[(int)action_node.object_id];
                 }
             }
         }
@@ -247,6 +247,12 @@ public class ObjectNode : Node
         this.concepts = new Dictionary<int, ConceptNode>();
         this.images = new Dictionary<int, ImageData>();
     }
+
+    // Get a bounding box representing this node.
+    public BoundingBox BoundingBox
+    {
+        get{ return this.scene_graph_objects[0].bounding_box; }
+    }
 }
 
 public class ActionNode : Node
@@ -260,7 +266,7 @@ public class ActionNode : Node
     public ObjectNode subject;
     // Object id can be null.
     public int? object_id;
-    public ObjectNode obj;
+    public ObjectNode object_;
     // Scene graph relationship can be null.
     public SceneGraphRelationship scene_graph_rel;
 

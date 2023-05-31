@@ -168,6 +168,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   node_prefab: {fileID: 7848573381755555651, guid: 53eb93bf612e6594b9658676eb271b70, type: 3}
+  edge_prefab: {fileID: 3460183282355164605, guid: 12255b938c167d74f951caa6adc11c92, type: 3}
   scene_image_prefab: {fileID: 4038457992341245554, guid: f5f44e56460f84f46b9a948c75225a10, type: 3}
   scene_canvas: {fileID: 551871442}
   main_camera: {fileID: 519420031}
@@ -269,9 +270,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 797b0baca376d344bb513a4d341cb7ca, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  key_pan_speed: 10
+  key_pan_speed: 8
   mouse_pan_speed: 50
-  zoom_speed: 50
+  zoom_speed: 40
   smoothness: 10
   minimum_size: 50
   next_position: {x: 0, y: 0, z: 0}
@@ -345,7 +346,7 @@ Canvas:
   m_Enabled: 1
   serializedVersion: 3
   m_RenderMode: 2
-  m_Camera: {fileID: 0}
+  m_Camera: {fileID: 519420031}
   m_PlaneDistance: 100
   m_PixelPerfect: 0
   m_ReceivesEvents: 1
