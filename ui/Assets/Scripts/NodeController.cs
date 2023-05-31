@@ -13,6 +13,8 @@ public class NodeController : MonoBehaviour
 
     // The node's outline game object.
     private GameObject outline;
+    // The node's fill game object.
+    private GameObject fill;
     // The node's text game object.
     private GameObject text;
     // The node's bounding box object, if it has one.
@@ -94,6 +96,7 @@ public class NodeController : MonoBehaviour
         this.original_scale = this.transform.localScale;
         this.target_scale = this.transform.localScale;
         this.outline = gameObject.transform.Find("outline").gameObject;
+        this.fill = gameObject.transform.Find("fill").gameObject;
         this.text = gameObject.transform.Find("text").gameObject;
     }
 
@@ -150,7 +153,7 @@ public class NodeController : MonoBehaviour
 
     private void SetFillColor(Color fill_color)
     {
-        this.gameObject.GetComponent<SpriteRenderer>().color = fill_color;
+        this.fill.GetComponent<SpriteRenderer>().color = fill_color;
     }
 
     private void SetOutlineColor(Color outline_color)
