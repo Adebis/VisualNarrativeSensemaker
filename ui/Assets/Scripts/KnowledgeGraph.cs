@@ -164,6 +164,12 @@ public class Edge
         if (token["commonsense_edge"].Type != JTokenType.Null)
             this.commonsense_edge_id = (int?)token["commonsense_edge"];
     }
+
+    public override string ToString()
+    {
+        return (this.source.name + "->" + this.relationship + " (" + this.weight.ToString() + ")" 
+            + "->" + this.target.name);
+    }
 }
 
 public class Node

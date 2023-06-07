@@ -17,7 +17,10 @@ public class Main : MonoBehaviour
     // Game objects
     public Canvas scene_canvas;
     public Camera main_camera;
+
+    // Controllers
     private CameraController main_camera_controller;
+    private GUIController gui_controller;
     
 
     // Data read from the sensemaker's output json.
@@ -33,9 +36,13 @@ public class Main : MonoBehaviour
     // The name of the output json file that should be loaded.
     public string output_file_name;
 
+    // What text should be displayed in the info box.
+    public string info_text;
+
     // Start is called before the first frame update
     void Start()
     {
+        this.gui_controller = this.gameObject.GetComponent<GUIController>();
         // Find the output directory, which should be under ../../data/outputs/
         string top_directory = Path.GetDirectoryName(Path.GetDirectoryName(Application.dataPath));
         // Go two directories up from Assets to get to VisualNarrativeSensemaker/
@@ -48,6 +55,55 @@ public class Main : MonoBehaviour
 
         this.InitializeImages();
         this.InitializeKnowledgeGraph();
+
+        // Get the first parameter set.
+        var parameter_set = sensemaker_data.parameter_sets.ToList()[0].Value;
+        // Get the solutions for this parameter set.
+        var solutions = sensemaker_data.solutions[parameter_set.id];
+        // Get the first solution set.
+        var solution = solutions[0];
+        // Every solution has a dictionary of accepted hypotheses, keyed by the hypothesis' ids.
+        // x offsets for new objects made for each image.
+        var x_offsets = new Dictionary<int, float>();
+        // y offsets
+        var y_offsets = new Dictionary<int, float>();
+        foreach (var image_id in this.scene_image_controllers.Keys)
+        {
+            x_offsets[image_id] = 5;
+            y_offsets[image_id] = -20;
+        }
+        // First, make nodes for all new object hypotheses.
+        foreach (var hypothesis in solution.accepted_hypotheses.Values)
+        {
+            if (hypothesis is NewObjectHyp)
+            {
+                var new_object_hyp = (NewObjectHyp)hypothesis;
+                var image_id = new_object_hyp.obj.image_ids[0];
+                // Put it in some empty space below the image it's for.
+                var image_controller = this.scene_image_controllers[image_id];
+                Vector3 node_position = new Vector3(image_controller.x + x_offsets[image_id], image_controller.y + y_offsets[image_id]);
+                x_offsets[image_id] += 20;
+                // If we've reached the right edge of the image, go down to a new row.
+                if (x_offsets[image_id] >= image_controller.Width)
+                {
+                    x_offsets[image_id] = 5;
+                    y_offsets[image_id] -= 20;
+                }
+                this.InitializeNode(new_object_hyp.obj, node_position, new_object_hyp);
+            }
+        }
+        // Make edges for all same object hypotheses.
+        foreach (var hypothesis in solution.accepted_hypotheses.Values)
+        {
+            if (hypothesis is SameObjectHyp)
+            {
+                var same_object_hyp = (SameObjectHyp)hypothesis;
+                this.InitializeEdge(same_object_hyp.edge, same_object_hyp);
+            }
+        }
+
+        // Start with hypothesized elements disabled.
+        this.DisableHypothesized();
     }
 
     private void InitializeImages()
@@ -60,7 +116,7 @@ public class Main : MonoBehaviour
         {
             // Make a new scene image ui element.
             var new_scene_image = Instantiate(this.scene_image_prefab, this.scene_canvas.transform);
-            var new_scene_image_controller =  new_scene_image.GetComponent<SceneImageController>();
+            var new_scene_image_controller = new_scene_image.GetComponent<SceneImageController>();
             // Initialize its controller.
             new_scene_image_controller.Initialize(image_data, x_offset);
             this.scene_image_controllers[image_data.id] = new_scene_image_controller;
@@ -186,17 +242,17 @@ public class Main : MonoBehaviour
     }
 
     // Initialize a node at the position passed in.
-    private void InitializeNode(Node node, Vector3 position)
+    private void InitializeNode(Node node, Vector3 position, Hypothesis hypothesis = null)
     {
         var node_object = Instantiate(this.node_prefab, position, 
             Quaternion.identity);
         var node_controller = node_object.GetComponent<NodeController>();
-        node_controller.Initialize(node, this.scene_image_controllers);
+        node_controller.Initialize(node, this.scene_image_controllers, this.gui_controller, hypothesis);
         this.node_controllers[node.id] = node_controller;
     }
 
     // Initialize an edge.
-    private void InitializeEdge(Edge edge)
+    private void InitializeEdge(Edge edge, Hypothesis hypothesis = null)
     {
         // Make sure the edge's nodes have node controllers.
         if (!this.node_controllers.ContainsKey(edge.source.id))
@@ -217,8 +273,49 @@ public class Main : MonoBehaviour
             Quaternion.identity);
         // Get and initialize the edge controller.
         var edge_controller = edge_object.GetComponent<EdgeController>();
-        edge_controller.Initialize(edge, source_controller, target_controller);
+        edge_controller.Initialize(edge, source_controller, target_controller, this.gui_controller, hypothesis);
         this.edge_controllers[edge.id] = edge_controller;
+    }
+
+    // Enable all hypothesized elements.
+    public void EnableHypothesized()
+    {
+        // Enable hypothesized nodes.
+        foreach (NodeController node_controller in this.node_controllers.Values)
+        {
+            if (node_controller.Hypothesized())
+            {
+                node_controller.gameObject.SetActive(true);
+            }
+        }
+        // Enable hypothesized edges.
+        foreach (EdgeController edge_controller in this.edge_controllers.Values)
+        {
+            if (edge_controller.Hypothesized())
+            {
+                edge_controller.gameObject.SetActive(true);
+            }
+        }
+    }
+    // Disable all hypothesized elements.
+    public void DisableHypothesized()
+    {
+        // Disable hypothesized nodes.
+        foreach (NodeController node_controller in this.node_controllers.Values)
+        {
+            if (node_controller.Hypothesized())
+            {
+                node_controller.gameObject.SetActive(false);
+            }
+        }
+        // Disable hypothesized edges.
+        foreach (EdgeController edge_controller in this.edge_controllers.Values)
+        {
+            if (edge_controller.Hypothesized())
+            {
+                edge_controller.gameObject.SetActive(false);
+            }
+        }
     }
 
     // Update is called once per frame
@@ -226,4 +323,5 @@ public class Main : MonoBehaviour
     {
         
     }
+
 }

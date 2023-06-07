@@ -306,6 +306,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bbox_prefab: {fileID: 5387436929403016452, guid: 88c9c47a4ad922f41b40eb2529b3be32, type: 3}
+  focused: 0
+  focus_locked: 0
 --- !u!135 &3339637938534539875
 SphereCollider:
   m_ObjectHideFlags: 0
