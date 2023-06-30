@@ -346,7 +346,7 @@ class NewObjectHyp(Hypothesis):
         Also sets itself as a premise for every ConceptEdgeHypothesis provided
         to it. 
         """
-        name = (f'offobj_h_{Hypothesis._next_id}_{obj.name}')
+        name = (f'newobj_h_{Hypothesis._next_id}_{obj.name}')
         super().__init__(name=name)
         # Make this Hypothesis a premise of every ConceptEdgeHypothesis passed
         # in, since they wouldn't exist without this Hypothesis' hypothetical
@@ -519,6 +519,71 @@ class PersistObjectHyp(Hypothesis):
 
 # end PersistObjectHyp
 
+class NewActionHyp(Hypothesis):
+    """
+    A Hypothesis that an Action exists which was not observed in a scene graph.
+
+    If the Hypothesis is accepted, the hypothetical Action would be added to
+    the KnowledgeGraph.
+
+    Evidence for this Hypothesis is the OtherHypEv for a series of 
+    ConceptEdgeHypotheses, each hypothesizing an Edge between the hypothetical 
+    Action's Concept and another Instance's Concept in the same scene.
+
+    Attributes
+    ----------
+    action : Action
+        The hypothesized Object.
+    concept_edge_hyps : list[Hypothesis]
+        The hypothesized Concept Edges from the hypothesized Action's Concept
+        to each other Instance's Concept in the same scene.
+    concept_edge_hyp_ev : list[OtherHypEv]
+        The other hypothesis evidence consisting of evidence made out of the
+        concept edge hypotheses from the hypothesized Action's Concept to each
+        other Instance's Concept in the same scene.
+    """
+    action: Action
+    concept_edge_hyps: list[Hypothesis]
+    concept_edge_hyp_ev: list[OtherHypEv]
+
+    def __init__(self, action: Action, concept_edge_hyps: list[Hypothesis]):
+        """
+        Initializes a NewActionHyp with the hypothetical Action and
+        the ConceptEdgeHypotheses between it and the other Instances in its
+        scene. 
+
+        Makes its own OtherHypEv out of the ConceptEdgeHypotheses
+        passed in, so no Evidence needs to be provided.
+
+        Also sets itself as a premise for every ConceptEdgeHypothesis provided
+        to it. 
+        """
+        name = (f'newact_h_{Hypothesis._next_id}_{action.name}')
+        super().__init__(name=name)
+        # Make this Hypothesis a premise of every ConceptEdgeHypothesis passed
+        # in, since they wouldn't exist without this Hypothesis' hypothetical
+        # Instance.
+        for hypothesis in concept_edge_hyps:
+            hypothesis.add_premise(premise=self)
+        self.action = action
+        self.concept_edge_hyps = concept_edge_hyps
+        # Make OtherHypEv for each concept edge hypothesis passed in.
+        self.concept_edge_hyp_ev = [OtherHypEv(h) for h in concept_edge_hyps]
+    # end __init__
+
+    def __repr__(self):
+        return (f'{self.name}. ' + 
+                f'Concept edges: {len(self.concept_edge_hyps)}. ')
+    # end __repr__
+
+    def get_individual_score(self):
+        """
+        Gets the score for accepting this hypothesis alone.
+        """
+        individual_score = 0
+        return individual_score
+    # end get_individual_score
+# end NewActionHyp
 
 
 class ActionHypothesis(Hypothesis):

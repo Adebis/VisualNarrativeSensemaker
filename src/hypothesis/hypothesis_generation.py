@@ -3,6 +3,7 @@ from timeit import default_timer as timer
 from commonsense.querier import CommonSenseQuerier
 from commonsense.commonsense_data import (CommonSenseNode, CommonSenseEdge, 
                                           ConceptNetNode, WordNetNode)
+from input_handling.scene_graph_data import (Image)
 from knowledge_graph.graph import KnowledgeGraph 
 from knowledge_graph.items import (Concept, Instance, Object, Action, Edge)
 
@@ -13,6 +14,7 @@ from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHyp,
                                    NewObjectHyp, 
                                    SameObjectHyp,
                                    PersistObjectHyp,
+                                   NewActionHyp,
                                    ActionHypothesis, Evidence, 
                                    ConceptEdgeEv)
 
@@ -38,18 +40,222 @@ class HypothesisGenerator:
         #action_hypotheses = self._generate_action_hypotheses(knowledge_graph)
         #hypotheses.update(action_hypotheses)
 
+        # Make possible new objects for each scene. 
+        new_objects = list()
+        for image in knowledge_graph.images.values():
+            new_objects.extend(self._make_new_objects(image, knowledge_graph))
+        # end for
+
+        # Make possible new actions for each scene. 
+        new_actions = list()
+        for image in knowledge_graph.images.values():
+            new_actions.extend()
+        # end for
+
         # Make ConceptEdgeHypotheses between all observed Instances.
         observation_hypotheses = self._make_concept_edge_hyps(
             knowledge_graph)
         hypotheses.update({h.id: h for h in observation_hypotheses})
 
         # Make Hypotheses to establish continuity between Images.
-        continuity_hypotheses = self._hypothesize_for_continuity(knowledge_graph)
-        hypotheses.update({h.id: h for h in continuity_hypotheses})
+        #continuity_hypotheses = self._hypothesize_for_continuity(knowledge_graph)
+        #hypotheses.update({h.id: h for h in continuity_hypotheses})
+
+        #action_hypotheses = self._make_new_action_hyps(hypotheses, knowledge_graph)
 
         print("Done generating hypotheses")
         return hypotheses
     # end generate_hypotheses
+
+    def _hypothesize_new_instances(self, knowledge_graph: KnowledgeGraph):
+        """
+        Hypothesizes new objects and actions for each scene.
+        """
+        # All new objects for each scene, keyed by image id.
+        all_new_objects = {image.id: list() for image in knowledge_graph.images.values()}
+        # All new actions for each scene, keyed by image id.
+        all_new_actions = {image.id: list() for image in knowledge_graph.images.values()}
+
+        # For each scene, make new object copies of its objects in every other
+        # scene. 
+        for source_image in knowledge_graph.images.values():
+            all_new_objects[source_image.id] = list()
+            for target_image in knowledge_graph.images.values():
+                if source_image == target_image:
+                    continue
+                for source_object in [obj for obj in knowledge_graph.get_scene_objects(source_image)]:
+                    new_object = Object(label=source_object.label, image=target_image,
+                                        attributes=source_object.attributes,
+                                        appearance=source_object.appearance,
+                                        scene_graph_objects=source_object.scene_graph_objects,
+                                        concepts=source_object.concepts,
+                                        hypothesized=True)
+                    all_new_objects[target_image].append(new_object)
+                # end for
+            # end for
+        # end for
+
+        # For each scene, gather all its Instances, then make new objects and
+        # actions based on those Instances. 
+        for image in knowledge_graph.images.values():
+            instances = knowledge_graph.get_scene_instances(image)
+            instances.extend(all_new_objects[image])
+            # Make new objects.
+            new_objects = self._make_new_objects(knowledge_graph, instances)
+            all_new_objects[image].extend(new_objects)
+
+            # Use those new objects to make new actions, too.
+            instances.extend(new_objects)
+            # Make new actions.
+            new_actions = self._make_new_actions(knowledge_graph, instances)
+            all_new_actions[image].extend(new_actions)
+
+            # Use those new actions to make new objects one more time.
+            instances.extend(new_actions)
+            # Make new objects.
+            new_objects = self._make_new_objects(knowledge_graph, instances)
+            all_new_objects[image].extend(new_objects)
+        # end for
+
+    # end _hypothesize_new_instances
+
+    def _make_new_objects(self, knowledge_graph: KnowledgeGraph, instances: list[Instance]) -> list[Object]:
+        """
+        Make possible new objects based on a set of existing instances.
+
+        Returns a list of Objects.
+        """
+        new_objects = list()
+        # Keep track of all the object concepts that are already represented.
+        existing_object_concepts = list()
+        for instance in instances:
+            if type(instance) == Object:
+                existing_object_concepts.extend(instance.concepts)
+        # end for
+
+        # Look at existing instances and get object concepts related to them. 
+        for instance in instances:
+            related_object_concepts = self._get_related_concepts(instance=instance,
+                                                                 concept_type=ConceptType.OBJECT,
+                                                                 knowledge_graph=knowledge_graph)
+            # Make a new object for each related object concept not already 
+            # represented in this scene.
+            for object_concept in related_object_concepts:
+                # If the object concept is already represented in the scene,
+                # don't make a new object based off of it.
+                if object_concept in existing_object_concepts:
+                    continue
+                # end if
+                new_object = Object(label=object_concept.label, image=instance.get_image(), 
+                                    attributes=[], appearance=None, 
+                                    scene_graph_objects=[], concepts=[object_concept],
+                                    hypothesized=True)
+                new_objects.append(new_object)
+                existing_object_concepts.append(object_concept)
+            # end for
+        # end for
+        return new_objects
+    # end _make_new_objects
+
+    def _make_new_actions(self, knowledge_graph: KnowledgeGraph, instances: list[Instance]) -> list[Action]:
+        """
+        Make possible new actions for a single scene, denoted by its Image.
+        """
+        new_actions = list()
+        # Keep track of all the actions concepts that are already represented.
+        existing_action_concepts = list()
+        for instance in instances:
+            if type(instance) == Action:
+                existing_action_concepts.extend(instance.concepts)
+        # end for
+
+        # Look at existing instances and get action concepts related to them. 
+        for instance in instances:
+            related_action_concepts = self._get_related_concepts(instance=instance,
+                                                                 concept_type=ConceptType.ACTION,
+                                                                 knowledge_graph=knowledge_graph)
+            # Make a new object for each related object concept not already 
+            # represented in this scene.
+            for action_concept in related_action_concepts:
+                # If the object concept is already represented in the scene,
+                # don't make a new object based off of it.
+                if action_concept in existing_action_concepts:
+                    continue
+                # end if
+                new_action = Action(label=action_concept.label, image=instance.get_image(), 
+                                    subject=None, object=None, 
+                                    scene_graph_rel=None, concepts=[action_concept],
+                                    hypothesized=True)
+                new_actions.append(new_action)
+                existing_action_concepts.append(action_concept)
+            # end for
+        # end for
+        return new_actions
+    # end _make_new_actions
+
+    def _get_related_concepts(self, instance: Instance, concept_type: ConceptType, 
+                              knowledge_graph: KnowledgeGraph) -> list[Concept]:
+        """
+        Get all of the Concepts of a specified type related to the Instance passed in.
+
+        Returns a list of Concepts.
+        """
+        related_concepts = list()
+
+        # Look for a different part-of-speech depending on whether we're
+        # searching for an Object or an Action.
+        target_pos = ''
+        if concept_type == ConceptType.OBJECT:
+            target_pos = 'n'
+        elif concept_type == ConceptType.ACTION:
+            target_pos = 'v'
+        # If it's neither of these, this is an error.
+        else:
+            return None
+        # end elif
+
+        # Go through all of the Instance's concepts.
+        for instance_concept in instance.concepts:
+            # Go through the CommonSenseEdges incident on this Concept.
+            for cs_edge in instance_concept.commonsense_edges.values():
+                # Figure out whether the edge starts or ends at this Concept and
+                # get the CommonSenseNode at the other end.
+                other_cs_node_id = None
+                if cs_edge.start_node_id in instance_concept.commonsense_nodes:
+                    other_cs_node_id = cs_edge.end_node_id
+                elif cs_edge.end_node_id in instance_concept.commonsense_nodes:
+                    other_cs_node_id = cs_edge.start_node_id
+                # If neither end is this Concept, something is wrong.
+                # Skip this edge. 
+                else:
+                    continue
+                # If the other cs node is ALSO in this Concept, the edge
+                # points back to the Concept itself! Skip it.
+                if other_cs_node_id in instance_concept.commonsense_nodes:
+                    continue
+                # Query the node.
+                other_cs_node = self._commonsense_querier.get_node(other_cs_node_id)
+                # See if the CommonSenseNode has the 'pos' attribute.
+                # If so, it's a ConceptNet or a WordNet node and we can check
+                # if it's a noun.
+                if hasattr(other_cs_node, 'pos'):
+                    # See if the pos matches the part of speech we're looking for 
+                    # based on whether we want Objects or Actions.
+                    # If so, get or make a Concept for it in the knowledge graph
+                    # and add that Concept to the list of related Concepts.
+                    if other_cs_node.pos is not None and other_cs_node.pos == target_pos:
+                        related_concept = knowledge_graph.get_or_make_concept(
+                            search_item=other_cs_node,
+                            concept_type=ConceptType.OBJECT)
+                        if not related_concept in related_concepts:
+                            related_concepts.append(related_concept)
+                        # end if
+                    # end if
+                # end if
+            # end for
+        # end for
+        return related_concepts
+    # end _get_related_concepts
 
     def _make_concept_edge_hyps(self, knowledge_graph: KnowledgeGraph):
         """
@@ -137,7 +343,7 @@ class HypothesisGenerator:
 
         Returns a list of generated Hypotheses.
         """
-        all_new_hypotheses = self._hypothesize_persist_object(
+        all_new_hypotheses = self._make_persist_object_hyps(
             knowledge_graph=knowledge_graph)
         
         # Get all observed and hypothesized Objects.
@@ -183,7 +389,7 @@ class HypothesisGenerator:
         return all_new_hypotheses
     # end _hypothesize_for_continuity
 
-    def _hypothesize_persist_object(self, knowledge_graph: KnowledgeGraph):
+    def _make_persist_object_hyps(self, knowledge_graph: KnowledgeGraph):
         """
         Generates PersistObjectHyps for all observed Objects
         in the knowledge graph.
@@ -279,8 +485,138 @@ class HypothesisGenerator:
             # end for image in absent_images
         # end for current_object in knowledge_graph.objects.values()
         return new_hypotheses
-    # end _hypothesize_persist_object
+    # end _make_persist_object_hyps
 
+    def _make_new_action_hyps(self, existing_hypotheses: dict[int, Hypothesis], 
+                              knowledge_graph: KnowledgeGraph):
+        """
+        Generates NewActionHyps.
+
+        Hypothesizes what new Actions the hypothesized and observed Objects in
+        each scene could be doing. 
+        """
+        # Get all existing NewObjectHyps
+        new_object_hyps = [h for h in existing_hypotheses.values() if type(h) == NewObjectHyp]
+        # Go through all the images.
+        for image_id, image in knowledge_graph.images:
+            # For each image, gather all the observed and hypothesized objects
+            # in that image. 
+            image_objects = list()
+            hyp_image_objects = [h.obj for h in new_object_hyps 
+                                 if h.obj.get_image().id == image_id]
+            observed_image_objects = [i for i in knowledge_graph.get_scene_instances(image) 
+                                      if type(i) == Object]
+            image_objects.extend(hyp_image_objects)
+            image_objects.extend(observed_image_objects)
+            # For each object, get all the action concepts related to it.
+            image_action_concepts = list()
+            for obj in image_objects:
+                object_action_concepts = self._get_related_action_concepts(obj=obj, knowledge_graph=knowledge_graph)
+                image_action_concepts.extend(object_action_concepts)
+            # end for obj in image_objects
+            # For every action concept, make a hypothesized Action Instance.
+            image_action_instances = list()
+            for action_concept in image_action_concepts:
+                action_instance = Action(label=action_concept.label,
+                                         image=image, subject=None, object=None,
+                                         scene_graph_rel=None, 
+                                         concepts=[action_concept],
+                                         hypothesized=True)
+                image_action_instances.append(action_instance)
+            # end for
+
+            # Now that we have every hypothesized action, make a NewActionHyp
+            # for each one. Try to form a ConceptEdgeHyp with every observed
+            # and hypothesized instance in the same scene. 
+        # end for image_id, image in knowledge_graph.images
+
+
+        all_new_actions = list()
+        # For each one, find all possible event concepts connected to the concepts
+        # of the new object its hypothesizing.
+        for new_object_hyp in new_object_hyps:
+            event_concepts = list()
+            for obj_concept in new_object_hyp.obj.concepts:
+                # Check all the commonsense edges incident on each of the
+                # object's concepts' commonsense nodes.
+                for cs_node in obj_concept.commonsense_nodes.values():
+                    for cs_edge_id in cs_node.edge_ids:
+                        # Some edges, like VisualGenome edges, are ignored and
+                        # won't appear in the list of CommonSenseEdges for a
+                        # Concept. Check if it's in the list first.
+                        if not cs_edge_id in obj_concept.commonsense_edges.keys():
+                            continue
+                        cs_edge = obj_concept.commonsense_edges[cs_edge_id]
+                        # See if the other cs node is a verb. If so, find or make
+                        # a concept for it and add it to the list of event concepts 
+                        # related to this hypothesized object.
+                        other_cs_node_id = cs_edge.get_other_node_id(cs_node.id)
+                        other_cs_node = self._commonsense_querier.get_node(other_cs_node_id)
+                        # See if the CommonSenseNode has the 'pos' attribute.
+                        # If so, it's a ConceptNet or a WordNet node.
+                        if hasattr(other_cs_node, 'pos'):
+                            if other_cs_node.pos is not None and other_cs_node.pos == 'v':
+                                event_concept = knowledge_graph.get_or_make_concept(
+                                    search_item=other_cs_node,
+                                    concept_type=ConceptType.ACTION)
+                                if not event_concept in event_concepts:
+                                    event_concepts.append(event_concept)
+                                # end if
+                            # end if
+                        # end if
+                # end for
+            # end for
+
+            # Now that we have event concepts related to this new object,
+            # hypothesize a new action for each event concept. 
+            # Make all of the new actions first.
+            new_actions = list()
+            for event_concept in event_concepts:
+                new_action = Action(label=event_concept.label,
+                                    image=new_object_hyp.obj.get_image(),
+                                    subject=new_object_hyp.obj,
+                                    object=None,
+                                    scene_graph_rel=None,
+                                    concepts=[event_concept],
+                                    hypothesized=True)
+                new_actions.append(new_action)
+            # end for
+            # Add them to the set of all new actions.
+            all_new_actions.extend(new_actions)
+        # end for
+
+        new_action_hyps = list()
+        all_concept_edge_hyps = list()
+        for new_action in all_new_actions:
+            image = new_action.subject.get_image()
+            # For every new action, make ConceptEdgeHyp to every
+            # observed Object in the same scene.
+            scene_instances = knowledge_graph.get_scene_instances(image)
+            scene_objects = [i for i in scene_instances if type(i) == Object]
+            concept_edge_hyps = list()
+            for scene_object in scene_objects:
+                concept_edge_hyps.extend(self._hypothesize_concept_edge(
+                    instance_1=new_action, instance_2=scene_object))
+            # end for
+            # Also make ConceptEdgeHyp to every hypothesized Object
+            # in the same scene.
+            for new_object_hyp in new_object_hyps:
+                concept_edge_hyps.extend(self._hypothesize_concept_edge(
+                    instance_1=new_action, instance_2=new_object_hyp.obj))
+            # end for
+            # Make a NewActionHyp using these ConceptEdgeHyps as evidence.
+            new_action_hyp = NewActionHyp(
+                action=new_action,
+                concept_edge_hyps=concept_edge_hyps)
+            new_action_hyps.append(new_action_hyp)
+            all_concept_edge_hyps.extend(concept_edge_hyps)
+        # end for
+        print(f'Number of new action hypotheses: {len(new_action_hyps)}')
+        all_hyps = list()
+        all_hyps.extend(all_concept_edge_hyps)
+        all_hyps.extend(new_action_hyps)
+        return all_hyps
+    # end _hypothesize_new_actions
 
     # TODO: Delete this?
     def _generate_action_hypotheses(self, knowledge_graph: KnowledgeGraph):

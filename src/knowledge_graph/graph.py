@@ -424,6 +424,15 @@ class KnowledgeGraph:
         return instances
     # end get_all_instances
 
+    def get_scene_objects(self, image: Image):
+        """
+        Gets a list of all the Objects present in a single scene, represented
+        by the scene's Image.
+        """
+        return [node for node in self.objects.values() 
+                if node.get_image() == image]
+    # end get_scene_objects
+
     def add_node(self, node: Node):
         """
         Adds a Node to the knowledge graph.

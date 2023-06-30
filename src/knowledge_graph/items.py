@@ -526,6 +526,9 @@ class Action(Instance):
 
     Attributes
     ----------
+    objects : dict[int, Object]
+        All of the Objects participating in this action, keyed by their IDs. 
+        The subject and object are members of the this dict.
     subject : Object, optional
         The node representing the subject of this action. The subject is the
         thing doing the action. Default value is None.
@@ -548,17 +551,30 @@ class Action(Instance):
                  hypothesized: bool=False):
         # Action node names are {label}_{image_index}_{id}
         if not subject is None:
-            image_index = subject.scene_graph_objects[0].image.index
+            image = subject.get_image()
         name = (f'{label}_{image.index}_{Node._next_id}')
         super().__init__(label=label,
                          name=name, 
                          concepts=concepts,
                          image=image,
                          hypothesized=hypothesized)
+        self.objects = dict()
         self.subject = subject
         self.object = object
+        # Put the subject and object in the objects dict if they exist.
+        if not subject is None:
+            self.objects[subject.id] = subject
+        if not object is None:
+            self.objects[object.id] = object
         self.scene_graph_rel = scene_graph_rel
     # end __init__
+
+    def add_object(self, object: Object):
+        """
+        Adds an object to this Action's dictionary of participating Objects.
+        """
+        self.objects[object.id] = object
+    # end add_object
 # end class Action
 
 class Edge:

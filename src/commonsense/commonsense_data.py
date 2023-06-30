@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Union
 
 @dataclass
 class Synset:
@@ -203,6 +204,23 @@ class CommonSenseEdge:
             return True
         return False
     # end __eq__
+    
+    def get_other_node_id(self, node_id: int) -> Union[int, None]:
+        """
+        If the node id passed in matches one of the node ids in this edge,
+        returns the non-matching node's id (i.e. the id of the node on the
+        other side of this edge).
+
+        Otherwise, returns None.
+        """
+        if self.start_node_id == node_id:
+            return self.end_node_id
+        elif self.end_node_id == node_id:
+            return self.start_node_id
+        else:
+            return None
+    # end get_other_node_id
+
 # end class CommonSenseEdge
 
 @dataclass
