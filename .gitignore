@@ -10,3 +10,16 @@ src/hypothesis/__pycache__/
 src/input_handling/__pycache__/
 src/knowledge_graph/__pycache__/
 src/output_handling/__pycache__/
+ui/Assets/*.meta
+ui/Assets/Scenes/*.meta
+ui/Assets/Scripts/*.meta
+ui/.vscode/
+ui/Library/
+ui/Logs/
+ui/obj/
+ui/Packages/
+ui/ProjectSettings/
+ui/Temp/
+ui/UserSettings/
+ui/Assembly-CSharp.csproj
+ui/ui.sln

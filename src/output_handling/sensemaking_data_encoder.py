@@ -9,14 +9,15 @@ from knowledge_graph.items import (Node, Concept, Instance, Object, Action,
                                    Edge, ConceptType, EdgeRelationship)
 from commonsense.commonsense_data import (CommonSenseNode, CommonSenseEdge, 
                                           FrameNetType, Synset)
-from hypothesis.hypothesis import (Evidence, ConceptEdgeEvidence, 
-                                   OtherHypothesisEvidence, 
-                                   VisualSimilarityEvidence,
-                                   AttributeSimilarityEvidence,
+from hypothesis.hypothesis import (Evidence, ConceptEdgeEv, 
+                                   OtherHypEv, 
+                                   VisualSimEv,
+                                   AttributeSimEv,
                                    Hypothesis,
-                                   ConceptEdgeHypothesis,
-                                   InstanceHypothesis,
-                                   ObjectDuplicateHypothesis)
+                                   ConceptEdgeHyp,
+                                   NewObjectHyp,
+                                   SameObjectHyp,
+                                   PersistObjectHyp)
 from hypothesis.hypothesis_evaluator import Solution
 
 class SensemakingDataEncoder(json.JSONEncoder):
@@ -49,20 +50,22 @@ class SensemakingDataEncoder(json.JSONEncoder):
             return self._encode_scene_graph_object(o)
         elif isinstance(o, SceneGraphRelationship):
             return self._encode_scene_graph_relationship(o)
-        elif isinstance(o, ConceptEdgeEvidence):
-            return self._encode_concept_edge_evidence(o)
-        elif isinstance(o, OtherHypothesisEvidence):
-            return self._encode_other_hypothesis_evidence(o)
-        elif isinstance(o, VisualSimilarityEvidence):
-            return self._encode_visual_similarity_evidence(o)
-        elif isinstance(o, AttributeSimilarityEvidence):
-            return self._encode_attribute_similarity_evidence(o)
-        elif isinstance(o, ConceptEdgeHypothesis):
-            return self._encode_concept_edge_hypothesis(o)
-        elif isinstance(o, InstanceHypothesis):
-            return self._encode_instance_hypothesis(o)
-        elif isinstance(o, ObjectDuplicateHypothesis):
-            return self._encode_object_duplicate_hypothesis(o)
+        elif isinstance(o, ConceptEdgeEv):
+            return self._encode_concept_edge_ev(o)
+        elif isinstance(o, OtherHypEv):
+            return self._encode_other_hyp_ev(o)
+        elif isinstance(o, VisualSimEv):
+            return self._encode_visual_sim_ev(o)
+        elif isinstance(o, AttributeSimEv):
+            return self._encode_attribute_sim_ev(o)
+        elif isinstance(o, ConceptEdgeHyp):
+            return self._encode_concept_edge_hyp(o)
+        elif isinstance(o, NewObjectHyp):
+            return self._encode_new_object_hyp(o)
+        elif isinstance(o, SameObjectHyp):
+            return self._encode_same_object_hyp(o)
+        elif isinstance(o, PersistObjectHyp):
+            return self._encode_persist_object_hyp(o)
         elif isinstance(o, Solution):
             return self._encode_solution(o)
         # Some custom dataclasses can be turned into their dictionary forms and 
@@ -80,7 +83,7 @@ class SensemakingDataEncoder(json.JSONEncoder):
         """
         Encodes a KnowledgeGraph into a json serializable dictionary.
 
-        Has dictionaries of all CommonSenseNodes, Images, Nodes, and Edges.
+        Has lists of all CommonSenseNodes, Images, Nodes, and Edges.
         """
         kg_dict = dict()
         # First, encode all commonsense_nodes into a top-level dictionaries. 
@@ -89,13 +92,16 @@ class SensemakingDataEncoder(json.JSONEncoder):
         # CommonSenseEdges incident on them. 
         commonsense_nodes = {cs_node.id: cs_node for cs_node in 
                              knowledge_graph.get_commonsense_nodes()}
-        kg_dict['commonsense_nodes'] = commonsense_nodes
+        kg_dict['commonsense_nodes'] = list(commonsense_nodes.values())
         # Encode all the images.
-        kg_dict['images'] = knowledge_graph.images
+        kg_dict['images'] = list(knowledge_graph.images.values())
         # Encode all Nodes
-        kg_dict['nodes'] = knowledge_graph.nodes
+        kg_dict['nodes'] = list(knowledge_graph.nodes.values())
+        #kg_dict['concepts'] = list(knowledge_graph.concepts.values())
+        #kg_dict['objects'] = list(knowledge_graph.objects.values())
+        #kg_dict['actions'] = list(knowledge_graph.actions.values())
         # Encode all edges
-        kg_dict['edges'] = knowledge_graph.edges
+        kg_dict['edges'] = list(knowledge_graph.edges.values())
         return kg_dict
     # end _encode_knowledge_graph
 
@@ -160,6 +166,8 @@ class SensemakingDataEncoder(json.JSONEncoder):
         """
         Encodes a Node into a json serializable dictionary.
 
+        Adds a 'type' field with the string name of the node's type.
+
         Edges are encoded as a list of edge ids. These can be looked up in
         the KnowledgeGraph's edges dictionary.
         """
@@ -167,15 +175,13 @@ class SensemakingDataEncoder(json.JSONEncoder):
                 'label': node.label,
                 'name': node.name,
                 'edges': [edge_id for edge_id in node.edges.keys()],
-                'hypothesized': node.hypothesized}
+                'hypothesized': node.hypothesized,
+                'type': type(node).__name__}
     # end _encode_node
 
     def _encode_concept(self, concept: Concept):
         """
         Encodes a Concept node into a json serializable dictionary.
-
-        Adds a 'type' field whose value is 'concept'.
-
         commonsense_nodes is encoded as a list of CommonSenseNode ids. 
         These can be looked up in the KnowledgeGraph's commonsense_nodes
         dictionary. 
@@ -183,8 +189,7 @@ class SensemakingDataEncoder(json.JSONEncoder):
         # First, encode it as a Node.
         node_dict = self._encode_node(concept)
         # Then, add the extra information from it being a Concept.
-        node_dict.update({'type': 'concept',
-                          'concept_type': concept.concept_type,
+        node_dict.update({'concept_type': concept.concept_type,
                           'synset': concept.synset,
                           'commonsense_nodes': [cs_node_id for cs_node_id in 
                                                 concept.commonsense_nodes.keys()]})
@@ -216,16 +221,13 @@ class SensemakingDataEncoder(json.JSONEncoder):
         """
         Encodes an Object node into a json serializable dictionary.
 
-        Adds a 'type' field whose value is 'object'
-
         Ignores the appearance attribute. The Object's appearance can be
         re-calculated from its smallest bounding box and its image's file.
         """
         # First, encode it as an Instance.
         node_dict = self._encode_instance(object_node)
         # Then, add extra information from it being an Object.
-        node_dict.update({'type': 'object',
-                          'scene_graph_objects': object_node.scene_graph_objects,
+        node_dict.update({'scene_graph_objects': object_node.scene_graph_objects,
                           'attributes': object_node.attributes})
         return node_dict
     # end _encode_object
@@ -235,12 +237,15 @@ class SensemakingDataEncoder(json.JSONEncoder):
         Encodes an Action node into a json serializable dictionary.
 
         subject and object are encoded as the ids of Object nodes. 
+
+        Have to call object 'obj' because object is a reserved term.
         """
         # First, encode it as an Instance.
         node_dict = self._encode_instance(action)
         # Then, add extra information from it being an Action.
-        node_dict.update({'subject': action.subject,
-                          'object': action.object,
+        node_dict.update({'subject': action.subject.id,
+                          'obj': (None if action.object is None 
+                                     else action.object.id),
                           'scene_graph_rel': action.scene_graph_rel})
         return node_dict
     # end _encode_action
@@ -265,77 +270,79 @@ class SensemakingDataEncoder(json.JSONEncoder):
     def _encode_evidence(self, evidence: Evidence):
         """
         Encodes a piece of Evidence into a json serializable dictionary.
+
+        Adds a 'type' field with a string representation of the Evidence's type.
         """
         return {'id': evidence.id,
-                'score': evidence.score}
+                'score': evidence.score,
+                'type': type(evidence).__name__}
     # end _encode_evidence
 
-    def _encode_concept_edge_evidence(self, ce_evidence: ConceptEdgeEvidence):
+    def _encode_concept_edge_ev(self, concept_edge_ev: ConceptEdgeEv):
         """
-        Encodes a piece of ConceptEdgeEvidence into a json serializble dict.
+        Encodes a piece of ConceptEdgeEv into a json serializble dict.
 
         edge is encoded as its Edge id.
         """
-        evidence_dict = self._encode_evidence(ce_evidence)
-        evidence_dict.update({'edge': ce_evidence.edge.id})
+        evidence_dict = self._encode_evidence(concept_edge_ev)
+        evidence_dict.update({'edge': concept_edge_ev.edge.id})
         return evidence_dict
-    # end _encode_concept_edge_evidence
+    # end _encode_concept_edge_ev
 
-    def _encode_other_hypothesis_evidence(self, 
-                                          oh_evidence: OtherHypothesisEvidence):
+    def _encode_other_hyp_ev(self, oh_evidence: OtherHypEv):
         """
-        Encodes a piece of OtherHypothesisEvidence into a json serializable dict.
+        Encodes a piece of OtherHypEv into a json serializable dict.
 
         hypothesis is encoded as the hypothesis' id.
         """
         evidence_dict = self._encode_evidence(oh_evidence)
         evidence_dict.update({'hypothesis': oh_evidence.hypothesis.id})
         return evidence_dict
-    # end _encode_other_hypothesis_evidence
+    # end _encode_other_hyp_ev
 
-    def _encode_visual_similarity_evidence(self, 
-                                        vs_evidence: VisualSimilarityEvidence):
+    def _encode_visual_sim_ev(self, 
+                                        visual_sim_ev: VisualSimEv):
         """
-        Encodes a piece of VisualSimilarityEvidence into a json serializable
+        Encodes a piece of VisualSimEv into a json serializable
         dict.
 
         object_1 and object_2 are encoded as Node ids.
         """
-        evidence_dict = self._encode_evidence(vs_evidence)
-        evidence_dict.update({'object_1': vs_evidence.object_1.id,
-                              'object_2': vs_evidence.object_2.id})
+        evidence_dict = self._encode_evidence(visual_sim_ev)
+        evidence_dict.update({'object_1': visual_sim_ev.object_1.id,
+                              'object_2': visual_sim_ev.object_2.id})
         return evidence_dict
-    # end _encode_visual_similarity_evidence
+    # end _encode_visual_sim_ev
 
-    def _encode_attribute_similarity_evidence(self,
-                                    as_evidence: AttributeSimilarityEvidence):
+    def _encode_attribute_sim_ev(self,
+                                    attribute_sim_ev: AttributeSimEv):
         """
-        Encodes a piece of AttributeSimilarityEvidence into a json serializable
+        Encodes a piece of AttributeSimEv into a json serializable
         dict.
 
         object_1 and object_2 are encoded as Node ids.
         """
-        evidence_dict = self._encode_evidence(as_evidence)
-        evidence_dict.update({'object_1': as_evidence.object_1.id,
-                              'object_2': as_evidence.object_2.id})
+        evidence_dict = self._encode_evidence(attribute_sim_ev)
+        evidence_dict.update({'object_1': attribute_sim_ev.object_1.id,
+                              'object_2': attribute_sim_ev.object_2.id})
         return evidence_dict
-    # end _encode_attribute_similarity_evidence
+    # end _encode_attribute_sim_ev
 
     def _encode_hypothesis(self, hypothesis: Hypothesis):
         """
         Encodes a Hypothesis into a json serializable dict.
 
+        Adds a 'type' field with a string of the Hypothesis' class type.
+
         premises is encoded as a list of Hypothesis ids.
         """
         return {'id': hypothesis.id,
                 'name': hypothesis.name,
-                'score': hypothesis.score,
-                'evidence': hypothesis.evidence,
-                'premises': [h_id for h_id in hypothesis.premises.keys()]}
+                'premises': [h_id for h_id in hypothesis.premises.keys()],
+                'type': type(hypothesis).__name__}
     # end _encode_hypothesis
 
-    def _encode_concept_edge_hypothesis(self, 
-                                        ce_hypothesis: ConceptEdgeHypothesis):
+    def _encode_concept_edge_hyp(self, concept_edge_hyp: ConceptEdgeHyp):
         """
         Encodes a ConceptEdgeHypothesis into a json serializable dict.
 
@@ -343,53 +350,78 @@ class SensemakingDataEncoder(json.JSONEncoder):
 
         edge is encoded as an Edge id.
         """
-        h_dict = self._encode_hypothesis(ce_hypothesis)
-        h_dict.update({'source_instance': ce_hypothesis.source_instance.id,
-                       'target_instance': ce_hypothesis.target_instance.id,
-                       'edge': ce_hypothesis.edge.id})
+        h_dict = self._encode_hypothesis(concept_edge_hyp)
+        h_dict.update({'source_instance': concept_edge_hyp.source_instance.id,
+                       'target_instance': concept_edge_hyp.target_instance.id,
+                       'edge': concept_edge_hyp.edge.id,
+                       'concept_edge_ev': concept_edge_hyp.concept_edge_ev})
         return h_dict
-    # end _encode_concept_edge_hypothesis
+    # end _encode_concept_edge_hyp
 
-    def _encode_instance_hypothesis(self, i_hypothesis: InstanceHypothesis):
+    def _encode_new_object_hyp(self, obj_hypothesis: NewObjectHyp):
         """
-        Encodes an InstanceHypothesis into a json serializable dict.
+        Encodes a NewObjectHyp into a json serializable dict.
 
-        instance is a hypothesized Instance which does not exist in the 
-        knowledge graph, so the whole Instance is encoded in the hypothesis.
+        object is a hypothesized Object which should be in the 
+        KnowledgeGraph. It is encoded as its id.
 
-        concept_edge_hypotheses is encoded as a list of Hypothesis id.
+        concept_edge_hyps is encoded as a list of Hypothesis id.
         """
-        h_dict = self._encode_hypothesis(i_hypothesis)
-        h_dict.update({'instance': i_hypothesis.instance,
-                       'concept_edge_hypotheses': [h.id for h in 
-                                        i_hypothesis.concept_edge_hypotheses]})
+        h_dict = self._encode_hypothesis(obj_hypothesis)
+        h_dict.update({'object': obj_hypothesis.obj.id,
+                       'concept_edge_hyps': [h.id for h in 
+                                        obj_hypothesis.concept_edge_hyps],
+                       'concept_edge_hyp_ev': [e for e in 
+                                        obj_hypothesis.concept_edge_hyp_ev]})
         return h_dict
-    # end _encode_instance_hypothesis
+    # end _encode_new_object_hyp
 
-    def _encode_object_duplicate_hypothesis(self, 
-                                    od_hypothesis: ObjectDuplicateHypothesis):
+    def _encode_same_object_hyp(self, 
+                                    same_object_hyp: SameObjectHyp):
         """
-        Encodes an ObjectDuplicateHypothesis into a json serializable dict.
+        Encodes an SameObjectHyp into a json serializable dict.
 
         object_1 and object_2 are encoded as their Node ids.
 
         edge is a hypothesized Edge which does not exist in the knowledge graph, 
         so the whole Edge is encoded in the hypothesis.
         """
-        h_dict = self._encode_hypothesis(od_hypothesis)
-        h_dict.update({'object_1': od_hypothesis.object_1.id,
-                       'object_2': od_hypothesis.object_2.id,
-                       'edge': od_hypothesis.edge})
+        h_dict = self._encode_hypothesis(same_object_hyp)
+        h_dict.update({'object_1': same_object_hyp.object_1.id,
+                       'object_2': same_object_hyp.object_2.id,
+                       'edge': same_object_hyp.edge,
+                       'visual_sim_ev': same_object_hyp.visual_sim_ev,
+                       'attribute_sim_ev': same_object_hyp.attribute_sim_ev})
         return h_dict
-    # end _encode_object_duplicate_hypothesis
+    # end _encode_same_object_hyp
+
+    def _encode_persist_object_hyp(self, persist_object_hyp: PersistObjectHyp):
+        """
+        Encodes a PersistObjectHyp into a json serializable dict.
+
+        object_ is encoded as its Node id.
+
+        new_object_hyp and same_object_hyp are encoded as their ids.
+        """
+        h_dict = self._encode_hypothesis(persist_object_hyp)
+        h_dict.update({'object_': persist_object_hyp.object_.id,
+            'new_object_hyp': persist_object_hyp.new_object_hyp.id,
+            'same_object_hyp': persist_object_hyp.same_object_hyp.id,
+            'new_object_hyp_ev': persist_object_hyp.new_object_hyp_ev,
+            'same_object_hyp_ev': persist_object_hyp.same_object_hyp_ev})
+        return h_dict
+    # end _encode_persist_object_hyp
 
     def _encode_solution(self, solution: Solution):
         """
         Encodes a Solution into a json serializable dict.
 
+        parameters is encoded as the parameter set's id.
+
         accepted_hypotheses is encoded as a list of Hypothesis ids.
         """
-        return {'parameters': solution.parameters,
+        return {'id': solution.id,
+                'parameters': solution.parameters.id,
                 'accepted_hypotheses': [h_id for h_id in 
                                         solution.accepted_hypotheses.keys()],
                 'energy': solution.energy}

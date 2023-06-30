@@ -29,7 +29,7 @@ CENTRALITY_DECAY = 0.5
 
 # How much we offset hypothesis scores by to ensure it does or does not appear
 # with another hypothesis in MWIS calculations.
-H_SCORE_OFFSET = 1000
+H_SCORE_OFFSET = 1000.0
 
 # Actions the system should ignore.
 FILTERED_ACTIONS = ["sit", "attach", "be", "have", "keep", "wear"]
