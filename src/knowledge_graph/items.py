@@ -54,8 +54,15 @@ class Node:
     edges : dict[int, Edge]
         All of the Edges incident on this node. Includes both incoming and
         outgoing Edges. Keyed by Edge id.
+    adjacency_dict : dict[int, list(Edge)]
+        A dictionary of the IDs of all of the Nodes this Node has at least one
+        Edge with. Keyed by adjacent Node id. Value is a list of the Edges
+        between this Node and the adjacent Node.
     hypothesized : bool
         Whether or not this Node came from a Hypothesis. Default value is False.
+    source_hyp_id : int
+        The ID of the Hypothesis this node came from, if this Node is
+        hypothesized.
 
     Methods
     -------
@@ -63,9 +70,16 @@ class Node:
         Adds an Edge to this Node. 
     """
 
+    id: int
+    label: str
+    name: str
+    hypothesized: bool
+    source_hyp_id: int
+
     # Class variable to make unique IDs when a new node is made.
     _next_id = 0
-    def __init__(self, label: str, name: str, hypothesized: bool=False):
+    def __init__(self, label: str, name: str, hypothesized: bool=False,
+                 source_hyp_id: int=-1):
         self.id = Node._next_id
         # Make sure to increment the next id class variable each time a new
         # id is assigned.
@@ -73,7 +87,9 @@ class Node:
         self.label = label
         self.name = name
         self.edges = dict()
+        self.adjacency_dict = dict()
         self.hypothesized = hypothesized
+        self.source_hyp_id = source_hyp_id
     # end __init__
 
     def __eq__(self, __obj):
@@ -100,19 +116,27 @@ class Node:
     def add_edge(self, edge):
         """
         Adds an Edge to this Node's dictionary of Edges.
+        Also adds the Edge to the list for the other node in the Edge 
+        in the adjacency_dict.
 
         Prevents duplicate Edges by checking the Edge's id.
         """
         if edge.id in self.edges:
             return
         self.edges[edge.id] = edge
+        other_node = edge.get_other_node(self)
+        if not other_node.id in self.adjacency_dict:
+            self.adjacency_dict[other_node.id] = list()
+        self.adjacency_dict[other_node.id].append(edge)
     # end add_edge
 
     def get_edges_with(self, node):
         """
-        Gets a list of all of this Node's Edges with another Node.
+        Gets a list of all of this Node's Edges with another Node. 
+        If there are none, returns the empty string.
         """
-        return [edge for edge in self.edges.values() if edge.has_node(node)]
+        return self.adjacency_dict[node.id] if node.id in self.adjacency_dict else list()
+        #return [edge for edge in self.edges.values() if edge.has_node(node)]
     # end get_edges_with
 # end class Node
 
@@ -212,7 +236,9 @@ class Concept(Node):
 
     def get_concept_edges(self):
         """
-        Gets all Edges between this Concept and another Concept.
+        Gets all Edges between this Concept and any other Concept.
+
+        Returns the empty list if there are none.
         """
         return [edge for edge in self.edges.values() 
                 if (type(edge.source)==Concept and type(edge.target)==Concept)]
@@ -258,10 +284,12 @@ class Instance(Node):
     _focal_node_distances: dict[int, int]
 
     def __init__(self, name: str, label: str, concepts: list[Concept], 
-                 image: Image, hypothesized: bool=False):
+                 image: Image, hypothesized: bool=False, 
+                 source_hyp_id: int=-1):
         super().__init__(name=name, 
                          label=label,
-                         hypothesized=hypothesized)
+                         hypothesized=hypothesized,
+                         source_hyp_id=source_hyp_id)
         self.concepts = concepts
         self.images = dict()
         self.images[image.id] = image
@@ -324,6 +352,20 @@ class Instance(Node):
         # end for
         return cs_edges
     # end get_commonsense_edges
+
+    def get_concept_edges_with(self, other_concept: Concept):
+        """
+        Gets the Edges between this Instance's Concepts and the Concept
+        passed in.
+        """
+        concept_edges = list()
+        for concept in self.concepts:
+            for concept_edge in concept.get_edges_with(other_concept):
+                concept_edges.append(concept_edge)
+            # end for
+        # end for
+        return concept_edges
+    # end get_concept_edge_with
 
     def get_neighboring_instances(self):
         """
@@ -402,7 +444,8 @@ class Object(Instance):
                  appearance: cv2.Mat = None,
                  scene_graph_objects: list[SceneGraphObject] = list(),
                  concepts: list[Concept] = list(),
-                 hypothesized: bool=False):
+                 hypothesized: bool=False,
+                 source_hyp_id: int=-1):
         """
         Initializes an Object node with a label, a list of the SceneGraphObjects 
         it's based off of, and a list of the Concepts it's an instance of.
@@ -424,7 +467,8 @@ class Object(Instance):
                          name=name, 
                          concepts=concepts,
                          image=image,
-                         hypothesized=hypothesized)
+                         hypothesized=hypothesized,
+                         source_hyp_id=source_hyp_id)
         self.scene_graph_objects = scene_graph_objects
         # Adds its scene graph objects' attributes to the ones passed in.
         self.attributes = list()
@@ -548,7 +592,8 @@ class Action(Instance):
                  object: Object = None, 
                  scene_graph_rel: SceneGraphRelationship = None,
                  concepts: list[Concept] = list(),
-                 hypothesized: bool=False):
+                 hypothesized: bool=False,
+                 source_hyp_id: int=-1):
         # Action node names are {label}_{image_index}_{id}
         if not subject is None:
             image = subject.get_image()
@@ -557,7 +602,8 @@ class Action(Instance):
                          name=name, 
                          concepts=concepts,
                          image=image,
-                         hypothesized=hypothesized)
+                         hypothesized=hypothesized,
+                         source_hyp_id=source_hyp_id)
         self.objects = dict()
         self.subject = subject
         self.object = object

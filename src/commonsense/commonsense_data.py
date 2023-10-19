@@ -221,6 +221,17 @@ class CommonSenseEdge:
             return None
     # end get_other_node_id
 
+    def get_relationship(self) -> str:
+        """
+        Get the relationship this edge represents from its URI.
+        """
+        # ConceptNet relation URIs are in the form /r/{RelationshipName},
+        # e.g. /r/IsA
+        # Split by forward-slash and get the third element.
+        relation_split = self.relation.split('/')
+        return self.relation.split('/')[2] if len(relation_split) >= 2 else ''
+    # end get_relationship
+
 # end class CommonSenseEdge
 
 @dataclass

@@ -7,6 +7,7 @@ import constants as const
 
 from knowledge_graph.items import (Concept, Instance, Object, Action, Edge,
                                    EdgeRelationship)
+from knowledge_graph.path import (Path, Step)
 
 class Evidence:
     """
@@ -18,44 +19,94 @@ class Evidence:
         A unique int identifier for this evidence.
     score : float
         The Evidence's score. For use in MOOP solving.
+    premise_hyp_ids : list[int]
+        The IDs of the hypotheses this evidence is premised on, if any. 
     """
+    id: int
+    score: float
+    premise_hyp_ids: list[int]
+
     # Class variable for making unique ids whenever a new piece of evidence is 
     # made.
     _next_id = 0
 
-    def __init__(self):
+    def __init__(self, premise_hyp_ids: list[int]):
         self.id = Evidence._next_id
         Evidence._next_id += 1
         self.score = 0
+        premise_hyp_ids = premise_hyp_ids
     # end __init__
 # end Evidence
 
 class ConceptEdgeEv(Evidence):
     """
-    Evidence consisting of the Edge between two Concepts.
+    Evidence consisting of the Edge between the Concepts of two Instances.
 
     Attributes
     ----------
     edge : Edge
-        The edge from one Concept to the other.
+        The edge from one Instance's Concept to the other.
+    source_instance : Instance
+        The source Instance. The edge is from the source_instance's Concept
+        to the target_instance's Concept.
+    target_instance : Instance
+        The target Instance.
     """
     edge: Edge
+    source_instance: Instance
+    target_instance: Instance
 
-    def __init__(self, edge: Edge):
-        super().__init__()
+    def __init__(self, edge: Edge, 
+                 source_instance: Instance,
+                 target_instance: Instance,
+                 premise_hyp_ids: list[int]=list()):
+        super().__init__(premise_hyp_ids=premise_hyp_ids)
         self.edge = edge
         # The score of a piece of ConceptEdgeEv is the weight of the Edge
         # between the two Concepts.
         self.score = edge.weight
+        self.source_instance = source_instance
+        self.target_instance = target_instance
     # end __init__
 
     def __str__(self):
-        return (f'ConceptEdgeEv: {self.edge.source} related to ' + 
-                f'{self.edge.target} through edge ' +
+        return (f'ConceptEdgeEv: {self.source_instance} related to ' + 
+                f'{self.target_instance} through edge ' +
                 f'{self.edge}. Score: {self.score}')
     # end __str__
-
 # end class ConceptEdgeEv
+
+class UnrelatedEv(Evidence):
+    """
+    Evidence consisting of the fact that one Instance has no relationship
+    to another Instance.
+
+    Attributes
+    ----------
+    source_instance : Instance
+        The source Instance.
+    target_instance : Instance
+        The target Instance.
+    """
+    source_instance: Instance
+    target_instance: Instance
+
+    def __init__(self,
+                 source_instance: Instance,
+                 target_instance: Instance,
+                 score: int,
+                 premise_hyp_ids: list[int]=list()):
+        super().__init__(premise_hyp_ids=premise_hyp_ids)
+        self.source_instance = source_instance
+        self.target_instance = target_instance
+        self.score = score
+    # end __init__
+
+    def __str__(self):
+        return (f'UnrelatedEv: {self.source_instance} not related to ' + 
+                f'{self.target_instance}. Score: {self.score}')
+    
+# end class UnrelatedEv
 
 class OtherHypEv(Evidence):
     """
@@ -97,7 +148,10 @@ class VisualSimEv(Evidence):
         Calculates the visual similarity between them based on their appearance
         attributes. 
         """
-        super().__init__()
+        # Pass the IDs of any source hypotheses of the objects passed in
+        # as premises for this evidence.
+        super().__init__([obj.source_hyp_id for obj in [object_1, object_2]
+                          if obj.hypothesized])
         self.object_1 = object_1
         self.object_2 = object_2
         # Calculate the visual similarity between these two Objects' appearances
@@ -158,7 +212,10 @@ class AttributeSimEv(Evidence):
         Calculates the attribute similarity between the by comparing their
         attributes and seeing which ones match.
         """
-        super().__init__()
+        # Pass the IDs of any source hypotheses of the objects passed in
+        # as premises for this evidence.
+        super().__init__([obj.source_hyp_id for obj in [object_1, object_2]
+                          if obj.hypothesized])
         self.object_1 = object_1
         self.object_2 = object_2
         # Judge their similarity by seeing how many of the attributes directly
@@ -181,6 +238,55 @@ class AttributeSimEv(Evidence):
     # end __repr__
 
 # end class AttributeSimEv
+
+class CausalPathEv(Evidence):
+    """
+    Evidence consisting of a path following causal connections between the Concepts 
+    of one Action and the Concepts of another Action. 
+
+    Attributes
+    ----------
+    source_action : Action
+        The Action whose concepts the path starts at.
+    target_action : Action
+        The Action whose concepts the path ends at.
+    source_concept : Concept
+        The concept the path starts at.
+    target_concept : Concept
+        The concept the path ends at.
+    concept_path : Path
+        The Path from the source Concept to the target Concept.
+    """
+
+    source_action: Action
+    target_action: Action
+    source_concept: Concept
+    target_concept: Concept
+    concept_path: Path
+
+    def __init__(self, source_action: Action, target_action: Action,
+                 source_concept: Concept, target_concept: Concept,
+                 concept_path: Path):
+        # Pass the IDs of any source hypotheses of the actions passed in
+        # as premises for this evidence.
+        super().__init__([action.source_hyp_id for action in [source_action, target_action]
+                          if action.hypothesized])
+        self.source_action = source_action
+        self.target_action = target_action
+        self.source_concept = source_concept
+        self.target_concept = target_concept
+        self.concept_path = concept_path
+        
+        # Calculate the score based on the average score of every edge in
+        # the path.
+        # The number of edges in the path is one less than the length of
+        # the path.
+        total_score = sum([step[1] for step in self.concept_path
+                           if step[1] is not None])
+        self.score = total_score / (len(self.concept_path) - 1)
+    # end __init__
+
+# end CausalPathEv
 
 class Hypothesis:
     """
@@ -321,47 +427,43 @@ class NewObjectHyp(Hypothesis):
     Attributes
     ----------
     obj : Object
-        The hypothesized Object.
-    concept_edge_hyps : list[Hypothesis]
-        The hypothesized Concept Edges from the hypothesized Object's Concept
-        to each other Instance's Concept in the same scene.
-    concept_edge_hyp_ev : list[OtherHypEv]
-        The other hypothesis evidence consisting of evidence made out of the
-        concept edge hypotheses from the hypothesized Object's Concept to each
-        other Instance's Concept in the same scene.
+        The hypothesized new Object.
+    source_object : Object
+        The Object that led to this new Object being hypothesized.
+
+        Currently, new objects are only hypothesized as copies of existing
+        objects from other scenes. source_object is the existing object that
+        this hypothesis' new object is a copy of.
+
+        Optional. 
+    concept_edge_evs : list[ConceptEdgeEv]
+        The ConceptEdgeEv supporting the Hypothesis that this new Object belongs
+        in its scene.
+    unrelated_evs : list[UnrelatedEv]
+        The UnrelatedEv refuting the Hypothesis that this new Object belongs
+        in its scene.
     """
     obj: Object
-    concept_edge_hyps: list[Hypothesis]
-    concept_edge_hyp_ev: list[OtherHypEv]
+    source_object: Object
+    concept_edge_evs: list[ConceptEdgeEv]
+    unrelated_evs: list[UnrelatedEv]
 
-    def __init__(self, obj: Object, concept_edge_hyps: list[Hypothesis]):
+    def __init__(self, obj: Object, source_object: Object):
         """
         Initializes a NewObjectHyp with the hypothetical Object and
-        the ConceptEdgeHypotheses between it and the other Objects in its
-        scene. 
-
-        Makes its own OtherHypEv out of the ConceptEdgeHypotheses
-        passed in, so no Evidence needs to be provided.
-
-        Also sets itself as a premise for every ConceptEdgeHypothesis provided
-        to it. 
+        the source Object it's a copy of.
         """
         name = (f'newobj_h_{Hypothesis._next_id}_{obj.name}')
         super().__init__(name=name)
-        # Make this Hypothesis a premise of every ConceptEdgeHypothesis passed
-        # in, since they wouldn't exist without this Hypothesis' hypothetical
-        # Instance.
-        for hypothesis in concept_edge_hyps:
-            hypothesis.add_premise(premise=self)
+
         self.obj = obj
-        self.concept_edge_hyps = concept_edge_hyps
-        # Make OtherHypEv for each concept edge hypothesis passed in.
-        self.concept_edge_hyp_ev = [OtherHypEv(h) for h in concept_edge_hyps]
+        self.source_object = source_object
+        self.concept_edge_evs = list()
+        self.unrelated_evs = list()
     # end __init__
 
     def __repr__(self):
-        return (f'{self.name}. ' + 
-                f'Concept edges: {len(self.concept_edge_hyps)}. ')
+        return (f'{self.name}. ')
     # end __repr__
 
     def get_individual_score(self):
@@ -371,7 +473,90 @@ class NewObjectHyp(Hypothesis):
         individual_score = 0
         return individual_score
     # end get_individual_score
+
+    def add_concept_edge_ev(self, concept_edge_ev: ConceptEdgeEv):
+        self.concept_edge_evs.append(concept_edge_ev)
+    # end add_concept_edge_evs
+    
+    def add_unrelated_ev(self, unrelated_ev: UnrelatedEv):
+        self.unrelated_evs.append(unrelated_ev)
+    # end add_unrelated_evs
+    # end add_unrelated_evs
 # end NewObjectHyp
+
+class NewActionHyp(Hypothesis):
+    """
+    A Hypothesis that an Action exists which was not observed in a scene graph.
+
+    If the Hypothesis is accepted, the hypothetical Action would be added to
+    the KnowledgeGraph.
+
+    Evidence for this Hypothesis is the OtherHypEv for a series of 
+    ConceptEdgeHypotheses, each hypothesizing an Edge between the hypothetical 
+    Action's Concept and another Instance's Concept in the same scene.
+
+    Attributes
+    ----------
+    action : Action
+        The hypothesized Object.
+    source_action : Action
+        The Action that led to this new Action being hypothesized.
+
+        Currently, new actions are only hypothesized from causally related actions 
+        of existing actions from other scenes. source_action is the existing action 
+        that this hypothesis' new action is causally related to.
+    source_causal_edge : Edge
+        The causal edge between one of the source action's Concepts and one of the
+        new action's Concepts that led to the new action being hypothesized.
+    concept_edge_evs : list[ConceptEdgeEv]
+        The ConceptEdgeEv supporting the Hypothesis that this new Action belongs
+        in its scene.
+    unrelated_ev : list[UnrelatedEv]
+        The UnrelatedEv refuting the Hypothesis that this new Action belongs
+        in its scene.
+    """
+    action: Action
+    source_action: Action
+    source_causal_edge: Edge
+    concept_edge_evs: list[ConceptEdgeEv]
+    unrelated_evs: list[UnrelatedEv]
+
+    def __init__(self, action: Action, 
+                 source_action: Action, 
+                 source_causal_edge: Edge):
+        """
+        Initializes a NewActionHyp with the hypothetical Action and
+        the causally related existing Action it's sourced from. 
+        """
+        name = (f'newact_h_{Hypothesis._next_id}_{action.name}')
+        super().__init__(name=name)
+        self.action = action
+        self.source_action = source_action
+        self.source_causal_edge = source_causal_edge
+        self.concept_edge_evs = list()
+        self.unrelated_evs = list()
+    # end __init__
+
+    def __repr__(self):
+        return (f'{self.name}. ')
+    # end __repr__
+
+    def get_individual_score(self):
+        """
+        Gets the score for accepting this hypothesis alone.
+        """
+        individual_score = 0
+        return individual_score
+    # end get_individual_score
+
+    def add_concept_edge_ev(self, concept_edge_ev: ConceptEdgeEv):
+        self.concept_edge_evs.append(concept_edge_ev)
+    # end add_concept_edge_evs
+    
+    def add_unrelated_ev(self, unrelated_ev: UnrelatedEv):
+        self.unrelated_evs.append(unrelated_ev)
+    # end add_unrelated_evs
+# end NewActionHyp
 
 class SameObjectHyp(Hypothesis):
     """
@@ -458,6 +643,59 @@ class SameObjectHyp(Hypothesis):
 
 # end class SameObjectHyp
 
+class CausalSequenceHyp(Hypothesis):
+    """
+    A Hypothesis that two Action Instances are in a causal sequence with one
+    another. 
+
+    More specifically, that the source_action leads to the target_action.
+
+    If the Hypothesis is accepted, the two Actions would get a 'leads-to' edge
+    pointing from the source action to the target action. Makes its own
+    'leads-to' edge when instantiated.
+
+    Evidence is the CausalPathEv from the source action to the target action.
+
+    Attributes
+    ----------
+    source_action : Action
+        The Action that comes before in the causal sequence.
+    target_action : Action
+        The Action that comes after in the causal sequence.
+    edge : Edge
+        The 'leads-to' edge from the source action to the target action. 
+    causal_path_ev : CausalPathEv
+        Evidence consisting of the causal path from the source action to the
+        target action.
+    """
+
+    source_action: Action
+    target_action: Action
+    edge: Edge
+    causal_path_ev: CausalPathEv
+
+    def __init__(self, source_action: Action,
+                 target_action: Action,
+                 causal_path_ev: CausalPathEv):
+        name = (f'causal_h_{Hypothesis._next_id}_{source_action.name}_{target_action.name}')
+        super().__init__(name)
+        self.source_action = source_action
+        self.target_action = target_action
+        self.causal_path_ev = causal_path_ev
+        self.edge = Edge(source=source_action,
+                         target=target_action,
+                         relationship='leads-to',
+                         weight=self.causal_path_ev.score,
+                         hypothesized=True)
+    # end __init__
+        
+# end CausalSequenceHyp
+
+
+
+
+
+
 class PersistObjectHyp(Hypothesis):
     """
     A hypothesis that an Object in one image persists into another image
@@ -519,71 +757,7 @@ class PersistObjectHyp(Hypothesis):
 
 # end PersistObjectHyp
 
-class NewActionHyp(Hypothesis):
-    """
-    A Hypothesis that an Action exists which was not observed in a scene graph.
 
-    If the Hypothesis is accepted, the hypothetical Action would be added to
-    the KnowledgeGraph.
-
-    Evidence for this Hypothesis is the OtherHypEv for a series of 
-    ConceptEdgeHypotheses, each hypothesizing an Edge between the hypothetical 
-    Action's Concept and another Instance's Concept in the same scene.
-
-    Attributes
-    ----------
-    action : Action
-        The hypothesized Object.
-    concept_edge_hyps : list[Hypothesis]
-        The hypothesized Concept Edges from the hypothesized Action's Concept
-        to each other Instance's Concept in the same scene.
-    concept_edge_hyp_ev : list[OtherHypEv]
-        The other hypothesis evidence consisting of evidence made out of the
-        concept edge hypotheses from the hypothesized Action's Concept to each
-        other Instance's Concept in the same scene.
-    """
-    action: Action
-    concept_edge_hyps: list[Hypothesis]
-    concept_edge_hyp_ev: list[OtherHypEv]
-
-    def __init__(self, action: Action, concept_edge_hyps: list[Hypothesis]):
-        """
-        Initializes a NewActionHyp with the hypothetical Action and
-        the ConceptEdgeHypotheses between it and the other Instances in its
-        scene. 
-
-        Makes its own OtherHypEv out of the ConceptEdgeHypotheses
-        passed in, so no Evidence needs to be provided.
-
-        Also sets itself as a premise for every ConceptEdgeHypothesis provided
-        to it. 
-        """
-        name = (f'newact_h_{Hypothesis._next_id}_{action.name}')
-        super().__init__(name=name)
-        # Make this Hypothesis a premise of every ConceptEdgeHypothesis passed
-        # in, since they wouldn't exist without this Hypothesis' hypothetical
-        # Instance.
-        for hypothesis in concept_edge_hyps:
-            hypothesis.add_premise(premise=self)
-        self.action = action
-        self.concept_edge_hyps = concept_edge_hyps
-        # Make OtherHypEv for each concept edge hypothesis passed in.
-        self.concept_edge_hyp_ev = [OtherHypEv(h) for h in concept_edge_hyps]
-    # end __init__
-
-    def __repr__(self):
-        return (f'{self.name}. ' + 
-                f'Concept edges: {len(self.concept_edge_hyps)}. ')
-    # end __repr__
-
-    def get_individual_score(self):
-        """
-        Gets the score for accepting this hypothesis alone.
-        """
-        individual_score = 0
-        return individual_score
-    # end get_individual_score
-# end NewActionHyp
 
 
 class ActionHypothesis(Hypothesis):

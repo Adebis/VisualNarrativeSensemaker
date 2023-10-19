@@ -433,6 +433,15 @@ class KnowledgeGraph:
                 if node.get_image() == image]
     # end get_scene_objects
 
+    def get_scene_actions(self, image: Image):
+        """
+        Gets a list of all the Actions present in a single scene, represented
+        by the scene's Image.
+        """
+        return [node for node in self.actions.values() 
+                if node.get_image() == image]
+    # end get_scene_actions
+
     def add_node(self, node: Node):
         """
         Adds a Node to the knowledge graph.
