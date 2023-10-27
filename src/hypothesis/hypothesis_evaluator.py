@@ -107,25 +107,25 @@ class HypothesisEvaluator():
         timers["end_predict_premise"] = timer()
 
         # Score all ConceptEdgeHypotheses
-        i_scores, p_scores = self._predict_concept_edge_scores(
-            hypotheses=hypotheses)
-        self._integrate_scores(individual_scores, i_scores)
-        self._integrate_scores(paired_scores, p_scores)
-        timers["end_concept_edge"] = timer()
+        #i_scores, p_scores = self._predict_concept_edge_scores(
+        #    hypotheses=hypotheses)
+        #self._integrate_scores(individual_scores, i_scores)
+        #self._integrate_scores(paired_scores, p_scores)
+        #timers["end_concept_edge"] = timer()
 
         # Score all NewObjectHyps
-        i_scores, p_scores = self._predict_new_object_scores(
-            knowledge_graph=knowledge_graph, hypotheses=hypotheses)
-        self._integrate_scores(individual_scores, i_scores)
-        self._integrate_scores(paired_scores, p_scores)
-        timers["end_new_object"] = timer()
+        #i_scores, p_scores = self._predict_new_object_scores(
+        #    knowledge_graph=knowledge_graph, hypotheses=hypotheses)
+        #self._integrate_scores(individual_scores, i_scores)
+        #self._integrate_scores(paired_scores, p_scores)
+        #timers["end_new_object"] = timer()
 
         # Score all PersistObjectHyps
-        i_scores, p_scores = self._predict_persist_object_scores(
-            hypotheses=hypotheses)
-        self._integrate_scores(individual_scores, i_scores)
-        self._integrate_scores(paired_scores, p_scores)
-        timers["end_persist_object"] = timer()
+        #i_scores, p_scores = self._predict_persist_object_scores(
+        #    hypotheses=hypotheses)
+        #self._integrate_scores(individual_scores, i_scores)
+        #self._integrate_scores(paired_scores, p_scores)
+        #timers["end_persist_object"] = timer()
 
         # Score all SameObjectHyps
         i_scores, p_scores, id_triplets = self._predict_same_object_scores(
@@ -133,6 +133,8 @@ class HypothesisEvaluator():
             paired_scores=paired_scores)
         self._integrate_scores(individual_scores, i_scores)
         timers["end_same_object"] = timer()
+
+        # Score all CausalSequenceHyps
 
         print("Done scoring.")
 
@@ -418,11 +420,11 @@ class HypothesisEvaluator():
             score = hypothesis.get_individual_score()
             # Accepting this hypothesis also gets rid of one no_continuity
             # penalty, so subtract that here.
-            score -= self.parameters.continuity_penalty
+            #score -= self.parameters.continuity_penalty
             # Multiply the score by the average centrality between the two
             # Instances this hypothesis is between.
-            score *= (hypothesis.object_1.get_centrality() + 
-                      hypothesis.object_2.get_centrality()) / 2
+            #score *= (hypothesis.object_1.get_centrality() + 
+            #          hypothesis.object_2.get_centrality()) / 2
             individual_scores[hypothesis.id] = score
         # end for
 
@@ -667,7 +669,7 @@ class HypothesisEvaluator():
             ids_list = list(ids)
             id_pair_1 = (ids_list[0], ids_list[1])
             id_pair_2 = (ids_list[1], ids_list[0])
-            # Divide each half by two so the score don't double.
+            # Divide each half by two so the scores don't double.
             qubo_matrix[id_pair_1] = score * scaling_factor / 2
             qubo_matrix[id_pair_2] = score * scaling_factor / 2
         # end for

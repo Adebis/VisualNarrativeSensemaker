@@ -6,6 +6,7 @@ from commonsense.commonsense_data import (CommonSenseNode, CommonSenseEdge,
 from input_handling.scene_graph_data import (Image)
 from knowledge_graph.graph import KnowledgeGraph 
 from knowledge_graph.items import (Concept, Instance, Object, Action, Edge)
+from knowledge_graph.path import (Path)
 
 import constants as const
 from constants import ConceptType
@@ -15,8 +16,10 @@ from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHyp,
                                    SameObjectHyp,
                                    PersistObjectHyp,
                                    NewActionHyp,
+                                   CausalSequenceHyp,
                                    ActionHypothesis, Evidence, 
-                                   ConceptEdgeEv, UnrelatedEv)
+                                   ConceptEdgeEv, UnrelatedEv,
+                                   CausalPathEv)
 
 class HypothesisGenerator:
     """
@@ -37,24 +40,21 @@ class HypothesisGenerator:
         print("Generating hypotheses")
 
         # Make NewObjectHyps and NewActionHyps
-        new_instance_hyps = self._hypothesize_new_instances(knowledge_graph=knowledge_graph)
+        #new_instance_hyps = self._hypothesize_new_instances(knowledge_graph=knowledge_graph)
+        new_instance_hyps = {}
 
         # Make SameObjectHyps between objects that have the same labels between scenes.
         same_object_hyps = self._make_same_object_hyps(knowledge_graph=knowledge_graph,
                                                        new_object_hyps={h.id: h for h in new_instance_hyps.values() 
                                                                         if type(h) == NewObjectHyp})
+        
+        # Make CausalSequenceHyps between actions that have ConceptNet causal
+        # paths between them. 
+        causal_sequence_hyps = self._make_causal_sequence_hyps(knowledge_graph=knowledge_graph,
+                                                               new_action_hyps={}) 
 
-        # Make ConceptEdgeHypotheses between all observed Instances.
-        #observation_hypotheses = self._make_concept_edge_hyps(
-        #    knowledge_graph)
-        #hypotheses.update({h.id: h for h in observation_hypotheses})
-
-        # Make Hypotheses to establish continuity between Images.
-        #continuity_hypotheses = self._hypothesize_for_continuity(knowledge_graph)
-        #hypotheses.update({h.id: h for h in continuity_hypotheses})
-
-        #action_hypotheses = self._make_new_action_hyps(hypotheses, knowledge_graph)
-
+        hypotheses.update(same_object_hyps)
+        hypotheses.update(causal_sequence_hyps)
         print("Done generating hypotheses")
         return hypotheses
     # end generate_hypotheses
@@ -343,6 +343,8 @@ class HypothesisGenerator:
         """
         Generates SameObjectHyps between objects that might be the same between
         scenes.
+
+        Returns a dictionary of SameObjectHyps, keyed by hypothesis ID.
         """
         same_object_hyps = dict()
 
@@ -430,15 +432,117 @@ class HypothesisGenerator:
         Make causal sequence hypotheses between every Action and every other
         Action in a different image with which there is a causal path through
         ConceptNet Concepts between the two Actions' Concepts.
-        """
-        
 
-        return
+        Returns a dictionary of CausalSequenceHyps, keyed by Hypothesis ID
+        """
+
+        causal_sequence_hyps = dict()
+
+        # Set up a mapping of pairs of Action IDs to the CausalSequenceHyp
+        # between them.
+        # Action ID pairs are stored as frozenpairs of ints.
+        # Multiple causal paths between the same two Actions will be
+        # stored as multiple pieces of CausalPathEvs in the single 
+        # CausalSequenceHyp between the two Actions.
+        hyps_by_id_pair = dict()
+
+        # Make a mapping of Image IDs to lists of Actions in those Images.
+        actions_by_image = dict()
+        for image_id, image in knowledge_graph.images.items():
+            actions_by_image[image_id] = knowledge_graph.get_scene_actions(image)
+        # end for
+
+        # Go through all the Images.
+        for source_image_id, source_image in knowledge_graph.images.items():
+            # Get all the Actions in this Image.
+            source_actions = actions_by_image[source_image_id]
+            # Get all the Actions NOT in this Image.
+            target_images = [i for i in knowledge_graph.images.values() 
+                            if not source_image==i]
+            target_actions = list()
+            for target_image in target_images:
+                target_actions.extend(actions_by_image[target_image.id])
+            # end for
+            # Compare all the Actions in this image with all the Actions not
+            # in this image.
+            for source_action in source_actions:
+                for target_action in target_actions:
+                    # Build the id pair.
+                    id_pair = frozenset([source_action.id, 
+                                         target_action.id])
+                    # If the id pair already has a hypothesis connected to it,
+                    # it has already been traversed in the other direction.
+                    # Skip it.
+                    if id_pair in hyps_by_id_pair:
+                        continue
+
+                    # Get any Edge shared between their Concepts whose
+                    # corresponding CommonsenseEdge's relationship is causal.
+                    shared_concept_edges = self._get_shared_concept_edges(instance_1=source_action,
+                                                                          instance_2=target_action)
+                    causal_concept_edges = [ce for ce in shared_concept_edges
+                                            if ce.commonsense_edge.get_relationship() 
+                                            in const.COHERENCE_TO_RELATIONSHIP['causal']]
+                    # For each causal edge, make a Path with two steps.
+                    # Step 1 is the Concept of the Action in this Image.
+                    # Step 2 is the Concept of the Action in the other Image.
+                    for causal_concept_edge in causal_concept_edges:
+                        concept_path = Path()
+                        # The Source Action is the Action in this image.
+                        # The Target Action is the Action in the other image.
+                        # Define source and target Concepts according to which
+                        # Concept belongs to the Source Action and which belongs
+                        # to the Target Action.
+                        source_concept = None
+                        target_concept = None
+                        if (source_action.has_concept(causal_concept_edge.source)
+                            and target_action.has_concept(causal_concept_edge.target)):
+                            source_concept = causal_concept_edge.source
+                            target_concept = causal_concept_edge.target
+                        elif (source_action.has_concept(causal_concept_edge.target)
+                              and target_action.has_concept(causal_concept_edge.source)):
+                            source_concept = causal_concept_edge.target
+                            target_concept = causal_concept_edge.source
+                        else:
+                            print('Error! Source and target concepts cannot be determined')
+                        concept_path.add_node(new_node=source_concept,
+                                              edge_from_last=None)
+                        concept_path.add_node(new_node=target_concept,
+                                              edge_from_last=causal_concept_edge)
+                        # Make CausalPathEv using the concept path.
+                        causal_path_evidence = CausalPathEv(source_action=source_action,
+                                                            target_action=target_action,
+                                                            source_concept=source_concept,
+                                                            target_concept=target_concept,
+                                                            concept_path=concept_path)
+                        # Make or fetch the CasualSequenceHyp for this pair
+                        # of actions.
+                        if not id_pair in hyps_by_id_pair:
+                            new_hyp = CausalSequenceHyp(source_action=source_action,
+                                                        target_action=target_action)
+                            hyps_by_id_pair[id_pair] = new_hyp
+                        # end if
+                        # Add the CausalPathEv to the Hypothesis.
+                        hyps_by_id_pair[id_pair].add_evidence(causal_path_evidence)
+                    # end for
+                # end for
+            # end for
+        # end for
+
+        # Add all hypotheses to the dictionary keyed by their IDs.
+        for id_pair, hyp in hyps_by_id_pair.items():
+            causal_sequence_hyps[hyp.id] = hyp
+
+        return causal_sequence_hyps
     # end _make_causal_sequence_hyps
 
 
 
 
+
+
+    # UNUSED
+    # =============================
 
     def _hypothesize_concept_edge(self, instance_1: Instance, 
                                   instance_2: Instance):

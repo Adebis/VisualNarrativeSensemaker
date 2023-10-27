@@ -281,9 +281,9 @@ class CausalPathEv(Evidence):
         # the path.
         # The number of edges in the path is one less than the length of
         # the path.
-        total_score = sum([step[1] for step in self.concept_path
-                           if step[1] is not None])
-        self.score = total_score / (len(self.concept_path) - 1)
+        total_score = sum([step.previous_edge.weight for step in self.concept_path.steps
+                           if step.previous_edge is not None])
+        self.score = total_score / (len(self.concept_path.steps) - 1)
     # end __init__
 
 # end CausalPathEv
@@ -664,31 +664,50 @@ class CausalSequenceHyp(Hypothesis):
         The Action that comes after in the causal sequence.
     edge : Edge
         The 'leads-to' edge from the source action to the target action. 
-    causal_path_ev : CausalPathEv
-        Evidence consisting of the causal path from the source action to the
-        target action.
+    causal_path_ev : list[CausalPathEv]
+        A list of Evidence, where each piece of Evidence consists of the causal 
+        path from the source action to the target action.
     """
 
     source_action: Action
     target_action: Action
     edge: Edge
-    causal_path_ev: CausalPathEv
+    causal_path_evs: list[CausalPathEv]
 
     def __init__(self, source_action: Action,
-                 target_action: Action,
-                 causal_path_ev: CausalPathEv):
+                 target_action: Action):
         name = (f'causal_h_{Hypothesis._next_id}_{source_action.name}_{target_action.name}')
         super().__init__(name)
         self.source_action = source_action
         self.target_action = target_action
-        self.causal_path_ev = causal_path_ev
+        self.causal_path_evs = list()
         self.edge = Edge(source=source_action,
                          target=target_action,
                          relationship='leads-to',
-                         weight=self.causal_path_ev.score,
+                         weight=0,
                          hypothesized=True)
     # end __init__
-        
+
+    def add_evidence(self, causal_path_ev: CausalPathEv):
+        """
+        Adds a piece of evidence to this Hypothesis.
+        """
+        self.causal_path_evs.append(causal_path_ev)
+        # Add the new evidence's score to the Edge's weight.
+        self.edge.weight += causal_path_ev.score
+    # end add_evidence
+
+    def get_individual_score(self):
+        """
+        Gets the score for accepting this hypothesis alone.
+        """
+        # Add each causal path evidence's scores together.
+        individual_score = 0
+        for causal_path_ev in self.causal_path_evs:
+            individual_score += causal_path_ev.score
+        return individual_score
+    # end get_individual_score
+    
 # end CausalSequenceHyp
 
 

@@ -7,6 +7,9 @@ class Step:
     """
     A single Step in a Path.
 
+    A Step consists of a Node, the Edge leading to the previous Step,
+    and the Edge leading to the next Step. 
+
     ...
 
     Attributes
@@ -93,22 +96,32 @@ class Path:
         self.steps = list()
     # end __init__
 
-    def add_step(self, new_step: Step, new_edge: Edge=None):
+    def add_node(self, new_node: Node, edge_from_last: Edge=None):
+        """
+        Adds a Node to the end of this Path and makes a Step for it, along with 
+        the Edge leading from the last Step to the new Node's Step. If this is 
+        the first Step an Edge is not needed.
+        """
+        new_step = Step(new_node)
+        self.add_step(new_step, edge_from_last=edge_from_last)
+
+    # end add_node
+
+    def add_step(self, new_step: Step, edge_from_last: Edge=None):
         """
         Adds a Step to the end of this Path, along with the Edge leading from the 
         last Step to the new Step. If this is the first step, an Edge is not needed.
 
         Sets the Steps' next and previous Steps appropriately.
         """
-        # The first step doesn't need a new Edge and doesn't need to update
-        # any next or previous edges.
-        if len(self.steps) == 0:
-            self.steps.append(new_step)
-        else:
+        # The first Step doesn't need a new Edge and doesn't need to update
+        # any next or previous Edges. Subsequent Steps do.
+        if len(self.steps) > 0:
             last_step = self.steps[len(self.steps) - 1]
-            last_step.set_next_step(new_step, new_edge)
-            new_step.set_previous_step(last_step, new_edge)
-        # end else
+            last_step.set_next_step(new_step, edge_from_last)
+            new_step.set_previous_step(last_step, edge_from_last)
+        # end if
+        self.steps.append(new_step)
     # end add_step
 
 # end path

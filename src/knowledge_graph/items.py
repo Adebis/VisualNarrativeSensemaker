@@ -642,7 +642,8 @@ class Edge:
     relationship : str
         The relationship between the source and target this edge represents.
     weight : float, optional
-        The weight of the edge. Default value is 1.
+        The weight of the edge. Default value is 1. If this Edge is made using
+        a CommonsenseEdge, the weight should be equal to the CommonsenseEdge's weight.
     commonsense_edge : CommonSenseEdge, optional
         The CommonSenseEdge this edge came from, if any. Default value is None.
     hypothesized : bool
