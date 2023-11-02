@@ -13,11 +13,13 @@ from hypothesis.hypothesis import (Evidence, ConceptEdgeEv,
                                    OtherHypEv, 
                                    VisualSimEv,
                                    AttributeSimEv,
+                                   CausalPathEv,
                                    Hypothesis,
                                    ConceptEdgeHyp,
                                    NewObjectHyp,
                                    SameObjectHyp,
-                                   PersistObjectHyp)
+                                   PersistObjectHyp,
+                                   CausalSequenceHyp)
 from hypothesis.hypothesis_evaluator import Solution
 
 class SensemakingDataEncoder(json.JSONEncoder):
@@ -58,6 +60,8 @@ class SensemakingDataEncoder(json.JSONEncoder):
             return self._encode_visual_sim_ev(o)
         elif isinstance(o, AttributeSimEv):
             return self._encode_attribute_sim_ev(o)
+        elif isinstance(o, CausalPathEv):
+            return self._encode_causal_path_ev(o)
         elif isinstance(o, ConceptEdgeHyp):
             return self._encode_concept_edge_hyp(o)
         elif isinstance(o, NewObjectHyp):
@@ -66,6 +70,8 @@ class SensemakingDataEncoder(json.JSONEncoder):
             return self._encode_same_object_hyp(o)
         elif isinstance(o, PersistObjectHyp):
             return self._encode_persist_object_hyp(o)
+        elif isinstance(o, CausalSequenceHyp):
+            return self._encode_causal_sequence_hyp(o)
         elif isinstance(o, Solution):
             return self._encode_solution(o)
         # Some custom dataclasses can be turned into their dictionary forms and 
@@ -315,7 +321,7 @@ class SensemakingDataEncoder(json.JSONEncoder):
     # end _encode_visual_sim_ev
 
     def _encode_attribute_sim_ev(self,
-                                    attribute_sim_ev: AttributeSimEv):
+                                 attribute_sim_ev: AttributeSimEv):
         """
         Encodes a piece of AttributeSimEv into a json serializable
         dict.
@@ -327,6 +333,25 @@ class SensemakingDataEncoder(json.JSONEncoder):
                               'object_2': attribute_sim_ev.object_2.id})
         return evidence_dict
     # end _encode_attribute_sim_ev
+
+    def _encode_causal_path_ev(self,
+                               causal_path_ev: CausalPathEv):
+        """
+        Encodes a piece of CausalPathEv into a json serializable dict.
+
+        source_action and target_action are encoded as Node ids.
+        source_concept and target_concept are encoded as Node ids. 
+        edge, the next_edge of the first Step of the concept_path, is encoded
+            as an Edge id.
+        """
+        evidence_dict = self._encode_evidence(causal_path_ev)
+        evidence_dict.update({'source_action': causal_path_ev.source_action.id,
+                              'target_action': causal_path_ev.target_action.id,
+                              'source_concept': causal_path_ev.source_concept.id,
+                              'target_concept': causal_path_ev.target_concept.id,
+                              'edge': causal_path_ev.concept_path.steps[0].next_edge.id})
+        return evidence_dict
+    # end _encode_causal_path_ev
 
     def _encode_hypothesis(self, hypothesis: Hypothesis):
         """
@@ -411,6 +436,23 @@ class SensemakingDataEncoder(json.JSONEncoder):
             'same_object_hyp_ev': persist_object_hyp.same_object_hyp_ev})
         return h_dict
     # end _encode_persist_object_hyp
+
+    def _encode_causal_sequence_hyp(self, causal_sequence_hyp: CausalSequenceHyp):
+        """
+        Encodes a CausalSequenceHyp into a json serializable dict.
+
+        source_action and target_action encoded as their Node ids.
+        edge (leads-to) added as-is. Can't encode by ID because it's not a part
+            of the knowledge graph. 
+        causal_path_evs added as-is so they can be encoded later.
+        """
+        h_dict = self._encode_hypothesis(causal_sequence_hyp)
+        h_dict.update({'source_action': causal_sequence_hyp.source_action.id,
+                       'target_action': causal_sequence_hyp.target_action.id,
+                       'edge': causal_sequence_hyp.edge.id,
+                       'causal_path_evs': causal_sequence_hyp.causal_path_evs})
+        return h_dict
+    # end _encode_causal_sequence_hyp
 
     def _encode_solution(self, solution: Solution):
         """

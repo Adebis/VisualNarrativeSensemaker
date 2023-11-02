@@ -10,7 +10,8 @@ from parameters import ParameterSet
 from knowledge_graph.graph import KnowledgeGraph
 from knowledge_graph.items import (Instance, Edge)
 from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHyp, 
-                                   SameObjectHyp, 
+                                   SameObjectHyp,
+                                   CausalSequenceHyp, 
                                    NewObjectHyp,
                                    PersistObjectHyp)
 
@@ -135,6 +136,12 @@ class HypothesisEvaluator():
         timers["end_same_object"] = timer()
 
         # Score all CausalSequenceHyps
+        i_scores = self._predict_causal_sequence_scores(
+            hypotheses=hypotheses,
+            paired_scores=paired_scores
+        )
+        self._integrate_scores(individual_scores, i_scores)
+        timers["end_causal_sequence"] = timer()
 
         print("Done scoring.")
 
@@ -203,7 +210,6 @@ class HypothesisEvaluator():
         base_scores[score_key] += score
     # end _integrate_score
 
-
     def _predict_premise_scores(self, hypotheses: dict[int, Hypothesis]):
         """
         Gets individual and paired score dictionaries with values set such that 
@@ -232,149 +238,6 @@ class HypothesisEvaluator():
         # end for
         return individual_scores, paired_scores
     # end _predict_premise_scores
-
-
-    def _predict_concept_edge_scores(self, hypotheses: dict[int, Hypothesis]):
-        """
-        Predicts scores for all of the ConceptEdgeHypotheses.
-
-        Parameters
-        ----------
-        hypotheses : dict[int, Hypothesis]
-            All of the Hypotheses, keyed by id.
-        
-        Returns
-        -------
-        individual_scores : dict[int, float]
-            The individual scores for each ConceptEdgeHypothesis, keyed by
-            hypothesis id.
-        paired_scores : dict[frozenset[int, int], float]
-            The paired scores for accepting two hypotheses together, keyed by
-            the ids of both hypotheses.
-        """
-        individual_scores = dict()
-        paired_scores = dict()
-        # Gather all the concept edge hypotheses.
-        concept_edge_hyps = [h for h in hypotheses.values() 
-                             if type(h) == ConceptEdgeHyp]
-        for hypothesis in concept_edge_hyps:
-            # The hypothesis' individual score is its evidence score, modified
-            # by any parameters.
-            score = hypothesis.get_individual_score()
-            score -= self.parameters.relationship_score_minimum
-            score *= self.parameters.relationship_score_weight
-            # Accepting this hypothesis also avoids one no_relationship_penalty,
-            # so subtract that here. 
-            score -= self.parameters.no_relationship_penalty
-            # Finally, take the average centrality between the two Instances the
-            # hypothesis is between and multiply the score by it.
-            score *= (hypothesis.source_instance.get_centrality() + 
-                      hypothesis.target_instance.get_centrality()) / 2
-            individual_scores[hypothesis.id] = score
-        # end for
-        return individual_scores, paired_scores
-    # end _predict_concept_edge_scores
-
-    def _predict_new_object_scores(self, knowledge_graph: KnowledgeGraph, 
-                                   hypotheses: dict[int, Hypothesis]):
-        """
-        Predicts scores for all of the NewObjectHyps.
-
-        Parameters
-        ----------
-        knowledge_graph : KnowledgeGraph
-            The knowledge graph, to look at observed Instances.
-        hypotheses : dict[int, Hypothesis]
-            All of the Hypotheses, keyed by id.
-        
-        Returns
-        -------
-        individual_scores : dict[int, float]
-            The individual scores for each NewObjectHyp, keyed by
-            hypothesis id.
-        paired_scores : dict[frozenset[int, int], float]
-            The paired scores for accepting two hypotheses together, keyed by
-            the ids of both hypotheses.
-        """
-        individual_scores = dict()
-        paired_scores = dict()
-        # Get all the NewObjectHypotheses.
-        new_object_hyps = [h for h in hypotheses.values() 
-                           if type(h) == NewObjectHyp]
-        for hypothesis in new_object_hyps:
-            # Get the image for the scene this hypothesized Instance is in.
-            image = hypothesis.obj.get_image()
-            # Get all the observed Instances in the same scene.
-            observed_instances = knowledge_graph.get_scene_instances(image)
-            # Get all the ObjectHypotheses in the same scene that are
-            # not this hypothesis.
-            scene_obj_hypotheses = [h for h in new_object_hyps
-                                    if h.obj.get_image() == image and
-                                    not h == hypothesis]
-            # The base assumption is that the hypothesized Object has no
-            # relationships with any other Instance in the scene. 
-
-            # Add one no_relationship_penalty score to the hypothesis for every
-            # Observed Instance in the scene.
-            score = (len(observed_instances) * 
-                     self.parameters.no_relationship_penalty)
-            # Multiply the score by the hypothesized Object's centrality.
-            centrality_factor = hypothesis.obj.get_centrality()
-            score *= centrality_factor
-            individual_scores[hypothesis.id] = score
-
-            # Add a paired score for each hypothesized Object in the same
-            # scene equal to one no_relationship_penalty.
-            for other_new_obj_hyp in scene_obj_hypotheses:
-                score = self.parameters.no_relationship_penalty
-                score *= centrality_factor
-                self._integrate_score(base_scores=paired_scores,
-                    score_key=frozenset([hypothesis.id, other_new_obj_hyp.id]),
-                    score=score)
-            # end for scene_obj_hypothesis
-
-            # Go through all of this hypothesis' ConceptEdgeHypotheses.
-            for concept_edge_hyp in hypothesis.concept_edge_hyps:
-                # Accepting this concept edge hypothesis means negating one 
-                # no_relationship_penalty.
-                # Add a paired score.
-                score = -self.parameters.no_relationship_penalty
-                score *= centrality_factor
-                self._integrate_score(base_scores=paired_scores,
-                    score_key=frozenset([hypothesis.id, concept_edge_hyp.id]),
-                    score=score)
-            # end for concept_edge_hyp
-
-        # end for hypothesis in obj_hypotheses
-        return (individual_scores, paired_scores)
-    # end _predict_new_object_scores
-
-    def _predict_persist_object_scores(self, hypotheses: dict[int, Hypothesis]):
-        """
-        Predicts scores for all the PersistObjectHyps.
-
-        Returns
-        -------
-        individual_scores : dict[int, float]
-            The individual scores for each PersistObjectHyp, keyed by
-            hypothesis id.
-        paired_scores : dict[frozenset[int, int], float]
-            The paired scores for accepting two hypotheses together, keyed by
-            the ids of both hypotheses.
-        """
-        individual_scores = dict()
-        paired_scores = dict()
-        persist_object_hyps = [h for h in hypotheses.values()
-                               if type(h) == PersistObjectHyp]
-        # PersistObjectHypotheses really only relies on the new object 
-        # hypothesis and same object hypothesis it generates alongside itself. 
-        # Both of those are already accounted for as premises in 
-        # predict_premise_scores.
-        for hypothesis in persist_object_hyps:
-            individual_scores[hypothesis.id] = 0
-        # end for
-        return individual_scores, paired_scores
-    # end _predict_persist_object_scores
 
     def _predict_same_object_scores(self, 
         hypotheses: dict[int, Hypothesis], 
@@ -639,6 +502,45 @@ class HypothesisEvaluator():
         return id_triplets
     # end _find_transitive_property_triplets
 
+    def _predict_causal_sequence_scores(self, 
+        hypotheses: dict[int, Hypothesis], 
+        paired_scores: dict[frozenset[int, int], float]) -> dict[int, float]:
+        """
+        Predict scores for all of the CausalSequenceHyps.
+        
+        Parameters
+        ----------
+        hypotheses : dict[int, Hypothesis]
+            All of the Hypotheses, keyed by id.
+        paired_scores : dict[frozenset[int, int], float]
+            Existing paired scores between hypotheses. Key is a pair of
+            hypothesis ids. Value is the score between them. Adds to paired
+            scores in-place.
+
+        Returns
+        -------
+        individual_scores : dict[int, float]
+            The individual scores for each SameObjectHyp, keyed by
+            hypothesis id.
+
+        new_paired_scores : dict[frozenset[int, int], float]
+            The paired scores for accepting two hypotheses together, keyed by
+            the ids of both hypotheses.
+        """
+        individual_scores = dict()
+
+        # Get all CausalSequenceHyps
+        causal_sequence_hyps = [h for h in hypotheses.values()
+                                if type(h) == CausalSequenceHyp]
+        # Go through each one and predict its score.
+        for hyp in causal_sequence_hyps:
+            score = hyp.get_individual_score()
+            individual_scores[hyp.id] = score
+        # end for hyp
+
+        return individual_scores
+    # end _predict_causal_sequence_scores
+
     def _solve_mwis(self, individual_scores: dict[int, float],
                     paired_scores: dict[frozenset[int, int], float]):
         """
@@ -697,6 +599,156 @@ class HypothesisEvaluator():
         # end for
         return (solution_sets, energies)
     # end _solve_mwis
+
+
+
+    # UNUSED
+    # ====================================
+
+
+    def _predict_concept_edge_scores(self, hypotheses: dict[int, Hypothesis]):
+        """
+        Predicts scores for all of the ConceptEdgeHypotheses.
+
+        Parameters
+        ----------
+        hypotheses : dict[int, Hypothesis]
+            All of the Hypotheses, keyed by id.
+        
+        Returns
+        -------
+        individual_scores : dict[int, float]
+            The individual scores for each ConceptEdgeHypothesis, keyed by
+            hypothesis id.
+        paired_scores : dict[frozenset[int, int], float]
+            The paired scores for accepting two hypotheses together, keyed by
+            the ids of both hypotheses.
+        """
+        individual_scores = dict()
+        paired_scores = dict()
+        # Gather all the concept edge hypotheses.
+        concept_edge_hyps = [h for h in hypotheses.values() 
+                             if type(h) == ConceptEdgeHyp]
+        for hypothesis in concept_edge_hyps:
+            # The hypothesis' individual score is its evidence score, modified
+            # by any parameters.
+            score = hypothesis.get_individual_score()
+            score -= self.parameters.relationship_score_minimum
+            score *= self.parameters.relationship_score_weight
+            # Accepting this hypothesis also avoids one no_relationship_penalty,
+            # so subtract that here. 
+            score -= self.parameters.no_relationship_penalty
+            # Finally, take the average centrality between the two Instances the
+            # hypothesis is between and multiply the score by it.
+            score *= (hypothesis.source_instance.get_centrality() + 
+                      hypothesis.target_instance.get_centrality()) / 2
+            individual_scores[hypothesis.id] = score
+        # end for
+        return individual_scores, paired_scores
+    # end _predict_concept_edge_scores
+
+    def _predict_new_object_scores(self, knowledge_graph: KnowledgeGraph, 
+                                   hypotheses: dict[int, Hypothesis]):
+        """
+        Predicts scores for all of the NewObjectHyps.
+
+        Parameters
+        ----------
+        knowledge_graph : KnowledgeGraph
+            The knowledge graph, to look at observed Instances.
+        hypotheses : dict[int, Hypothesis]
+            All of the Hypotheses, keyed by id.
+        
+        Returns
+        -------
+        individual_scores : dict[int, float]
+            The individual scores for each NewObjectHyp, keyed by
+            hypothesis id.
+        paired_scores : dict[frozenset[int, int], float]
+            The paired scores for accepting two hypotheses together, keyed by
+            the ids of both hypotheses.
+        """
+        individual_scores = dict()
+        paired_scores = dict()
+        # Get all the NewObjectHypotheses.
+        new_object_hyps = [h for h in hypotheses.values() 
+                           if type(h) == NewObjectHyp]
+        for hypothesis in new_object_hyps:
+            # Get the image for the scene this hypothesized Instance is in.
+            image = hypothesis.obj.get_image()
+            # Get all the observed Instances in the same scene.
+            observed_instances = knowledge_graph.get_scene_instances(image)
+            # Get all the ObjectHypotheses in the same scene that are
+            # not this hypothesis.
+            scene_obj_hypotheses = [h for h in new_object_hyps
+                                    if h.obj.get_image() == image and
+                                    not h == hypothesis]
+            # The base assumption is that the hypothesized Object has no
+            # relationships with any other Instance in the scene. 
+
+            # Add one no_relationship_penalty score to the hypothesis for every
+            # Observed Instance in the scene.
+            score = (len(observed_instances) * 
+                     self.parameters.no_relationship_penalty)
+            # Multiply the score by the hypothesized Object's centrality.
+            centrality_factor = hypothesis.obj.get_centrality()
+            score *= centrality_factor
+            individual_scores[hypothesis.id] = score
+
+            # Add a paired score for each hypothesized Object in the same
+            # scene equal to one no_relationship_penalty.
+            for other_new_obj_hyp in scene_obj_hypotheses:
+                score = self.parameters.no_relationship_penalty
+                score *= centrality_factor
+                self._integrate_score(base_scores=paired_scores,
+                    score_key=frozenset([hypothesis.id, other_new_obj_hyp.id]),
+                    score=score)
+            # end for scene_obj_hypothesis
+
+            # Go through all of this hypothesis' ConceptEdgeHypotheses.
+            for concept_edge_hyp in hypothesis.concept_edge_hyps:
+                # Accepting this concept edge hypothesis means negating one 
+                # no_relationship_penalty.
+                # Add a paired score.
+                score = -self.parameters.no_relationship_penalty
+                score *= centrality_factor
+                self._integrate_score(base_scores=paired_scores,
+                    score_key=frozenset([hypothesis.id, concept_edge_hyp.id]),
+                    score=score)
+            # end for concept_edge_hyp
+
+        # end for hypothesis in obj_hypotheses
+        return (individual_scores, paired_scores)
+    # end _predict_new_object_scores
+
+    def _predict_persist_object_scores(self, hypotheses: dict[int, Hypothesis]):
+        """
+        Predicts scores for all the PersistObjectHyps.
+
+        Returns
+        -------
+        individual_scores : dict[int, float]
+            The individual scores for each PersistObjectHyp, keyed by
+            hypothesis id.
+        paired_scores : dict[frozenset[int, int], float]
+            The paired scores for accepting two hypotheses together, keyed by
+            the ids of both hypotheses.
+        """
+        individual_scores = dict()
+        paired_scores = dict()
+        persist_object_hyps = [h for h in hypotheses.values()
+                               if type(h) == PersistObjectHyp]
+        # PersistObjectHypotheses really only relies on the new object 
+        # hypothesis and same object hypothesis it generates alongside itself. 
+        # Both of those are already accounted for as premises in 
+        # predict_premise_scores.
+        for hypothesis in persist_object_hyps:
+            individual_scores[hypothesis.id] = 0
+        # end for
+        return individual_scores, paired_scores
+    # end _predict_persist_object_scores
+
+
 
     # DEBUG: CURRENTLY UNUSED
     def score_hypothesis_set(self, knowledge_graph: KnowledgeGraph, 

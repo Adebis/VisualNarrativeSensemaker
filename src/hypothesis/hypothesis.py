@@ -688,6 +688,10 @@ class CausalSequenceHyp(Hypothesis):
                          hypothesized=True)
     # end __init__
 
+    def __repr__(self):
+        return (f'{self.source_action}->leads-to->{self.target_action}')
+    # end __repr__
+
     def add_evidence(self, causal_path_ev: CausalPathEv):
         """
         Adds a piece of evidence to this Hypothesis.

@@ -615,6 +615,10 @@ class Action(Instance):
         self.scene_graph_rel = scene_graph_rel
     # end __init__
 
+    def __repr__(self):
+        return super().__repr__()
+    # end __repr__
+
     def add_object(self, object: Object):
         """
         Adds an object to this Action's dictionary of participating Objects.
