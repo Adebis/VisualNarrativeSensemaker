@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 3460183282355164602}
   - component: {fileID: 3460183282355164603}
   - component: {fileID: 3460183282355164604}
-  - component: {fileID: 5014182395535452378}
+  - component: {fileID: 5991913309013354999}
   m_Layer: 0
   m_Name: Edge
   m_TagString: Untagged
@@ -36,6 +36,7 @@ Transform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!120 &3460183282355164603
 LineRenderer:
+  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -72,8 +73,8 @@ LineRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
+  m_SortingLayerID: 507389743
+  m_SortingLayer: 1
   m_SortingOrder: 0
   m_Positions:
   - {x: 0, y: 0, z: 0}
@@ -123,16 +124,20 @@ LineRenderer:
       atime6: 0
       atime7: 0
       m_Mode: 0
+      m_ColorSpace: 0
       m_NumColorKeys: 2
       m_NumAlphaKeys: 2
     numCornerVertices: 0
     numCapVertices: 0
     alignment: 0
     textureMode: 0
+    textureScale: {x: 1, y: 1}
     shadowBias: 0.5
     generateLightingData: 0
+  m_MaskInteraction: 0
   m_UseWorldSpace: 1
   m_Loop: 0
+  m_ApplyActiveColorSpace: 0
 --- !u!114 &3460183282355164604
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -145,7 +150,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1820e18e7601ed8499bff975fd5129ca, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!68 &5014182395535452378
+  scene_text_prefab: {fileID: 545639576816879623, guid: a947ba07551d49d48b34a665bebcacd5, type: 3}
+  edge_arrow_prefab: {fileID: 1644169900230973770, guid: b2f8a3aee9cb7bb4c9ef585e9ff75051, type: 3}
+  original_color: {r: 0, g: 0, b: 0, a: 0}
+  focused: 0
+  focus_locked: 0
+--- !u!68 &5991913309013354999
 EdgeCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -155,6 +165,25 @@ EdgeCollider2D:
   m_Enabled: 1
   m_Density: 1
   m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
   m_IsTrigger: 1
   m_UsedByEffector: 0
   m_UsedByComposite: 0

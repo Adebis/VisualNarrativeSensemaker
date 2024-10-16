@@ -4,6 +4,7 @@ from abc import abstractmethod
 from timeit import default_timer as timer
 
 from nltk.corpus import wordnet as wn
+from nltk.stem import WordNetLemmatizer
 import spacy
 
 import constants as const
@@ -23,6 +24,9 @@ class CommonSenseQuerier:
     nlp : Language
         The nlp model object for spacy. Stored as an attribute so it only has
         to be made once.
+    lemmatizer : WordNetLemmatizer
+        An object to lemmatize any word according to WordNet's built-in 
+        functions.
     """
     def __init__(self, db_file_path: str=None):
         if db_file_path == None:
@@ -36,6 +40,7 @@ class CommonSenseQuerier:
         spacy_timer = timer()
         print('CommonsenseQuerier.__init__ : Loading en_core_web_lg...')
         self.nlp = spacy.load('en_core_web_lg')
+        self.lemmatizer = WordNetLemmatizer()
         print(f'Done! Elapsed time: {timer() - spacy_timer}')
     # end __init__
 
@@ -84,29 +89,28 @@ class CommonSenseQuerier:
             failed, returns None.
         """
         return_value = None
-        # Open a connection to the database
-        connection = sqlite3.connect(self.database_file_path)
         try:
-            # Get a cursor to the database
-            cursor = connection.cursor()
-            # Execute the given sql command.
-            if query_data == None:
-                cursor.execute(query_string)
-            else:
-                cursor.execute(query_string, query_data)
-            return_value = cursor.fetchall()
-            # end if
-            # Commit the changes to the database
-            connection.commit()
+            # Open a connection to the database
+            with sqlite3.connect(self.database_file_path) as connection:
+                # Get a cursor to the database
+                cursor = connection.cursor()
+                # Execute the given sql command.
+                if query_data == None:
+                    cursor.execute(query_string)
+                else:
+                    cursor.execute(query_string, query_data)
+                return_value = cursor.fetchall()
+                # end if
+                # Commit the changes to the database
+                connection.commit()
+            # end with
         except Error as e:
             print(f'database_manager.execute_query : Error executing sql ' +
                 f'query \"{query_string}\": {e}' +
                 f'\ndata:{query_data}')
             return_value = None
         # end try
-        # Whether the command was executed successfully or not,
-        # close the connection.
-        connection.close()
+
         return return_value
     # end execute_query
 
@@ -155,9 +159,9 @@ class CommonSenseQuerier:
         return return_value
     # end execute_query_batch
         
-# end class ConceptNetQuerier
+# end class CommonSenseQuerier
 
-def find_synset(term: str, pos: str):
+def find_synset(term: str, pos: str, lemmatizer: WordNetLemmatizer):
     """
     Finds a synset for a word or phrase.
 
@@ -168,12 +172,14 @@ def find_synset(term: str, pos: str):
     pos : str
         A part-of-speech for the synset. Should match one of NLTK WordNet's
         part-of-speech definitions (i.e. wn.VERB, wn.NOUN)
+    lemmatizer : WordNetLemmatizer
+        An object to lemmatize terms according to WordNet's built-in functions.
     
     Returns
     -------
     synset : wn.Synset | None
         If a synset was found for the term, returns it. If no synset could
-        be found, returns False.
+        be found, returns None.
     """
     # First, normalize the term.
     # Replace make it lower-case and replace all spaces with underscores.
@@ -181,15 +187,20 @@ def find_synset(term: str, pos: str):
     term = term.replace(' ', '_')
     # Split the term up by underscore.
     term_split = term.split('_')
+    # Lemmatize each term in the split.
+    term_lemmas = list()
+    for _term in term_split:
+        lemma = lemmatizer.lemmatize(_term)
+        term_lemmas.append(lemma)
     # If there is more than one word in the term, try adjacent pairs of
     # words until we find a synset.
     synsets = list()
-    if len(term_split) > 1:
+    if len(term_lemmas) > 1:
         # Stop at the second-to-last word in the term.
-        for i in range(0, len(term_split) - 2):
+        for i in range(0, len(term_lemmas) - 2):
             # Try the two-word phrase made of the current word and
             # the next word.
-            phrase = (f'{term_split[i]}_{term_split[i+1]}')
+            phrase = (f'{term_lemmas[i]}_{term_lemmas[i+1]}')
             synsets = wn.synsets(phrase, pos)
             if not len(synsets) == 0:
                 break
@@ -200,7 +211,7 @@ def find_synset(term: str, pos: str):
             return synsets[0]
     # end if
     # In all other cases, try to find a synset for the last word.
-    synsets = wn.synsets(term_split[-1], pos)
+    synsets = wn.synsets(term_lemmas[-1], pos)
     if not len(synsets) == 0:
         return synsets[0]
     else:

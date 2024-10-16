@@ -14,6 +14,9 @@ from commonsense.commonsense_data import (CommonSenseNode, CommonSenseEdge,
 
 from constants import ConceptType
 
+# Debug
+from nltk.corpus.reader.wordnet import Synset as wnSynset
+
 class EdgeRelationship(Enum):
     """
     An enum for Edge relationships.
@@ -54,8 +57,15 @@ class Node:
     edges : dict[int, Edge]
         All of the Edges incident on this node. Includes both incoming and
         outgoing Edges. Keyed by Edge id.
+    adjacency_dict : dict[int, list(Edge)]
+        A dictionary of the IDs of all of the Nodes this Node has at least one
+        Edge with. Keyed by adjacent Node id. Value is a list of the Edges
+        between this Node and the adjacent Node.
     hypothesized : bool
         Whether or not this Node came from a Hypothesis. Default value is False.
+    source_hyp_id : int
+        The ID of the Hypothesis this node came from, if this Node is
+        hypothesized.
 
     Methods
     -------
@@ -63,9 +73,16 @@ class Node:
         Adds an Edge to this Node. 
     """
 
+    id: int
+    label: str
+    name: str
+    hypothesized: bool
+    source_hyp_id: int
+
     # Class variable to make unique IDs when a new node is made.
     _next_id = 0
-    def __init__(self, label: str, name: str, hypothesized: bool=False):
+    def __init__(self, label: str, name: str, hypothesized: bool=False,
+                 source_hyp_id: int=-1):
         self.id = Node._next_id
         # Make sure to increment the next id class variable each time a new
         # id is assigned.
@@ -73,7 +90,9 @@ class Node:
         self.label = label
         self.name = name
         self.edges = dict()
+        self.adjacency_dict = dict()
         self.hypothesized = hypothesized
+        self.source_hyp_id = source_hyp_id
     # end __init__
 
     def __eq__(self, __obj):
@@ -100,19 +119,39 @@ class Node:
     def add_edge(self, edge):
         """
         Adds an Edge to this Node's dictionary of Edges.
+        Also adds the Edge to the list for the other node in the Edge 
+        in the adjacency_dict.
 
         Prevents duplicate Edges by checking the Edge's id.
         """
+        # DEBUG:
+        #if edge.commonsense_edge is not None:
+        #    if edge.commonsense_edge.id == 6000001:
+        #        print('Its my edge!')
+
         if edge.id in self.edges:
             return
         self.edges[edge.id] = edge
+        other_node = edge.get_other_node(self)
+        if not other_node.id in self.adjacency_dict:
+            self.adjacency_dict[other_node.id] = list()
+        self.adjacency_dict[other_node.id].append(edge)
     # end add_edge
 
     def get_edges_with(self, node):
         """
-        Gets a list of all of this Node's Edges with another Node.
+        Gets a list of all of this Node's Edges with another Node. 
+        If there are none, returns the empty list.
         """
-        return [edge for edge in self.edges.values() if edge.has_node(node)]
+
+        if node.id in self.adjacency_dict:
+            edges = self.adjacency_dict[node.id]
+            return edges
+        else:
+            return list()
+        #return self.adjacency_dict[node.id] if node.id in self.adjacency_dict else list()
+
+        #return [edge for edge in self.edges.values() if edge.has_node(node)]
     # end get_edges_with
 # end class Node
 
@@ -145,17 +184,33 @@ class Concept(Node):
         A dictionary of the CommonSenseEdge objects incident on the 
         CommonSenseNode objects this Concept represents. Keyed by 
         CommonsenseEdge id. Default is the empty dict.
+    polarity_scores : dict[str, float]
+        The sentiment scores for this Concept as NLTK polarity scores. 
+        Keys:
+            'neg'
+            'neu'
+            'pos'
+            'compound'
+    sentiment: float
+        A single float score for the sentiment of this concept.
+        Calculated from the polarity scores.
     """
     concept_type: ConceptType
     synset: Synset
     commonsense_nodes: dict[int, CommonSenseNode]
     commonsense_edges: dict[int, CommonSenseEdge]
+    polarity_scores: dict[str, float]
+    sentiment: float
 
     def __init__(self, label: str, concept_type: ConceptType, 
-                 synset: Synset = None):
+                 synset: Synset = None, 
+                 polarity_scores: dict[str, float]=dict()):
         # Concept names are {concept}_{type_letter}_{id}, where type_letter is 
         # the first letter of the Concept's ConceptType.
         #   Examples: bicycle_o, run_a
+        # Debug
+        if type(synset) == wnSynset:
+            print('Wrong synset type!')
         type_letter = 'c'
         if concept_type == ConceptType.OBJECT:
             type_letter = 'o'
@@ -167,6 +222,9 @@ class Concept(Node):
                          hypothesized=False)
         self.concept_type = concept_type
         self.synset = synset
+        self.polarity_scores = polarity_scores
+        # Calculate sentiment from polarity scores.
+        self.sentiment = 0 - polarity_scores['neg'] + polarity_scores['pos']
         self.commonsense_nodes = dict()
         self.commonsense_edges = dict()
     # end __init__
@@ -212,7 +270,9 @@ class Concept(Node):
 
     def get_concept_edges(self):
         """
-        Gets all Edges between this Concept and another Concept.
+        Gets all Edges between this Concept and any other Concept.
+
+        Returns the empty list if there are none.
         """
         return [edge for edge in self.edges.values() 
                 if (type(edge.source)==Concept and type(edge.target)==Concept)]
@@ -258,10 +318,12 @@ class Instance(Node):
     _focal_node_distances: dict[int, int]
 
     def __init__(self, name: str, label: str, concepts: list[Concept], 
-                 image: Image, hypothesized: bool=False):
+                 image: Image, hypothesized: bool=False, 
+                 source_hyp_id: int=-1):
         super().__init__(name=name, 
                          label=label,
-                         hypothesized=hypothesized)
+                         hypothesized=hypothesized,
+                         source_hyp_id=source_hyp_id)
         self.concepts = concepts
         self.images = dict()
         self.images[image.id] = image
@@ -315,7 +377,7 @@ class Instance(Node):
     def get_commonsense_edges(self) -> list[CommonSenseEdge]:
         """
         Gets the CommonSenseEdges incident on the CommonSenseNodes of the
-        Concepts of this Instnace.
+        Concepts of this Instance.
         """
         cs_edges = list()
         for concept in self.concepts:
@@ -324,6 +386,20 @@ class Instance(Node):
         # end for
         return cs_edges
     # end get_commonsense_edges
+
+    def get_concept_edges_with(self, other_concept: Concept):
+        """
+        Gets the Edges between this Instance's Concepts and the Concept
+        passed in.
+        """
+        concept_edges = list()
+        for concept in self.concepts:
+            for concept_edge in concept.get_edges_with(other_concept):
+                concept_edges.append(concept_edge)
+            # end for
+        # end for
+        return concept_edges
+    # end get_concept_edge_with
 
     def get_neighboring_instances(self):
         """
@@ -402,7 +478,8 @@ class Object(Instance):
                  appearance: cv2.Mat = None,
                  scene_graph_objects: list[SceneGraphObject] = list(),
                  concepts: list[Concept] = list(),
-                 hypothesized: bool=False):
+                 hypothesized: bool=False,
+                 source_hyp_id: int=-1):
         """
         Initializes an Object node with a label, a list of the SceneGraphObjects 
         it's based off of, and a list of the Concepts it's an instance of.
@@ -424,7 +501,8 @@ class Object(Instance):
                          name=name, 
                          concepts=concepts,
                          image=image,
-                         hypothesized=hypothesized)
+                         hypothesized=hypothesized,
+                         source_hyp_id=source_hyp_id)
         self.scene_graph_objects = scene_graph_objects
         # Adds its scene graph objects' attributes to the ones passed in.
         self.attributes = list()
@@ -543,12 +621,19 @@ class Action(Instance):
 
         Default value is None.
     """
+
+    objects: dict[int, Object]
+    subject: Object | None
+    object: Object | None
+    scene_graph_rel: SceneGraphRelationship | None
+
     def __init__(self, label: str, image: Image,
                  subject: Object = None, 
                  object: Object = None, 
                  scene_graph_rel: SceneGraphRelationship = None,
                  concepts: list[Concept] = list(),
-                 hypothesized: bool=False):
+                 hypothesized: bool=False,
+                 source_hyp_id: int=-1):
         # Action node names are {label}_{image_index}_{id}
         if not subject is None:
             image = subject.get_image()
@@ -557,7 +642,8 @@ class Action(Instance):
                          name=name, 
                          concepts=concepts,
                          image=image,
-                         hypothesized=hypothesized)
+                         hypothesized=hypothesized,
+                         source_hyp_id=source_hyp_id)
         self.objects = dict()
         self.subject = subject
         self.object = object
@@ -569,12 +655,38 @@ class Action(Instance):
         self.scene_graph_rel = scene_graph_rel
     # end __init__
 
+    def __repr__(self):
+        return super().__repr__()
+    # end __repr__
+
     def add_object(self, object: Object):
         """
         Adds an object to this Action's dictionary of participating Objects.
         """
         self.objects[object.id] = object
     # end add_object
+
+    def is_subject(self, object_: Object):
+        '''
+        Returns True if the object passed in is the subject of this Action.
+
+        Returns False otherwise.
+        '''
+        if object_ == self.subject:
+            return True
+        else:
+            return False
+    # end is_subject
+    def is_object(self, object_: Object):
+        '''
+        Returns True if the object passed in is the object of this Action.
+
+        Returns False otherwise.
+        '''
+        if object_ == self.object:
+            return True
+        else:
+            return False
 # end class Action
 
 class Edge:
@@ -596,7 +708,8 @@ class Edge:
     relationship : str
         The relationship between the source and target this edge represents.
     weight : float, optional
-        The weight of the edge. Default value is 1.
+        The weight of the edge. Default value is 1. If this Edge is made using
+        a CommonsenseEdge, the weight should be equal to the CommonsenseEdge's weight.
     commonsense_edge : CommonSenseEdge, optional
         The CommonSenseEdge this edge came from, if any. Default value is None.
     hypothesized : bool

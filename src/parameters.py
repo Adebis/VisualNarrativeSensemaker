@@ -11,31 +11,37 @@ class ParameterSet():
         A unique integer identifier. 
     name : str
         A human readable name for this set of parameters.
-    no_relationship_penalty : float
-        The base penalty for not having an Edge between two Instances in the 
-        same scene.
-
-        The value of this penalty should be set to a negative value for it to be
-        a penalty.
-    relationship_score_minimum : float
-        All relationship scores that fall below this minimum are penalized. All
-        relationship scores that exceed this minium are rewarded.
-    relationship_score_weight : float
-        A weight multiplied against all relationship scores after they have
-        been compared to the minimum.
-    continuity_penalty : float
-        The base penalty for all Instances that aren't accounted for in other
-        scenes.
-
-        The value of this penalty should be set to a negative value for it to be
-        a penalty.
+    visual_sim_ev_weight : float
+        A weight multiplied against all VisualSimEv scores.
+    visual_sim_ev_thresh : float
+        A minimum threshold below which VisualSimEv scores are negative.
+    attribute_sim_ev_weight : float
+        A weight multiplied against all AttributeSimEv scores.
+    attribute_sim_ev_thresh : float
+        A minimum threshold below which AttributeSimEv scores are negative.
+    causal_path_ev_weight : float
+        A weight multiplied against all CausalPathEv scores.
+    causal_path_ev_thresh : float
+        A minimum threshold below which CausalPathEv scores are negative.
+    continuity_ev_weight : float
+        A weight multiplied against all ContinuityEv scores.
+    continuity_ev_thresh : float
+        A minimum threshold below which ContinuityEv scores are negative.
     """
     id: int = field(init=False)
     name: str
-    no_relationship_penalty: float
-    relationship_score_minimum: float
-    relationship_score_weight: float
-    continuity_penalty: float
+    visual_sim_ev_weight: float
+    visual_sim_ev_thresh: float
+    attribute_sim_ev_weight: float
+    attribute_sim_ev_thresh: float
+    causal_path_ev_weight: float
+    causal_path_ev_thresh: float
+    continuity_ev_weight: float
+    continuity_ev_thresh: float
+    density_weight: float
+    affect_curve: list[int]
+    affect_curve_weight: float
+    affect_curve_thresh: float
 
     # Class variable to ensure that each parameter set gets a unique id.
     _next_id = 0
@@ -44,3 +50,7 @@ class ParameterSet():
         self.id = ParameterSet._next_id
         ParameterSet._next_id += 1
     # end __post_init__
+
+    def set_id(self, id: int):
+        self.id = id
+    # end set_id

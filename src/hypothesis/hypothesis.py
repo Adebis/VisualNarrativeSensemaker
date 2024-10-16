@@ -1,186 +1,13 @@
-from abc import abstractmethod
-
-import cv2
-from image_similarity_measures import quality_metrics
+from typing import Union
 
 import constants as const
+from constants import (CausalFlowDirection)
 
 from knowledge_graph.items import (Concept, Instance, Object, Action, Edge,
                                    EdgeRelationship)
-
-class Evidence:
-    """
-    Base class for a piece of evidence supporting (or refuting) a Hypothesis.
-
-    Attributes
-    ----------
-    id : int
-        A unique int identifier for this evidence.
-    score : float
-        The Evidence's score. For use in MOOP solving.
-    """
-    # Class variable for making unique ids whenever a new piece of evidence is 
-    # made.
-    _next_id = 0
-
-    def __init__(self):
-        self.id = Evidence._next_id
-        Evidence._next_id += 1
-        self.score = 0
-    # end __init__
-# end Evidence
-
-class ConceptEdgeEv(Evidence):
-    """
-    Evidence consisting of the Edge between two Concepts.
-
-    Attributes
-    ----------
-    edge : Edge
-        The edge from one Concept to the other.
-    """
-    edge: Edge
-
-    def __init__(self, edge: Edge):
-        super().__init__()
-        self.edge = edge
-        # The score of a piece of ConceptEdgeEv is the weight of the Edge
-        # between the two Concepts.
-        self.score = edge.weight
-    # end __init__
-
-    def __str__(self):
-        return (f'ConceptEdgeEv: {self.edge.source} related to ' + 
-                f'{self.edge.target} through edge ' +
-                f'{self.edge}. Score: {self.score}')
-    # end __str__
-
-# end class ConceptEdgeEv
-
-class OtherHypEv(Evidence):
-    """
-    Evidence consisting of another Hypothesis.
-
-    Attributes
-    ----------
-    hypothesis : Hypothesis
-        The Hypothesis serving as Evidence.
-    """
-    def __init__(self, hypothesis):
-        super().__init__()
-        self.hypothesis = hypothesis
-        self.score = 0
-    # end __init__
-
-    def __repr__(self):
-        return (f'OtherHypEv: {self.hypothesis}')
-    # end __repr__
-# end class OtherHypEv
-
-class VisualSimEv(Evidence):
-    """
-    Evidence consisting of the visual similarity between the appearance of two
-    Objects.
-
-    Attributes
-    ----------
-    object_1 : Object
-        One of the Objects.
-    object_2 : Object
-        The other Object.
-    """
-
-    def __init__(self, object_1: Object, object_2: Object):
-        """
-        Initializes with the two Objects.
-
-        Calculates the visual similarity between them based on their appearance
-        attributes. 
-        """
-        super().__init__()
-        self.object_1 = object_1
-        self.object_2 = object_2
-        # Calculate the visual similarity between these two Objects' appearances
-        appearance_1 = object_1.appearance
-        appearance_2 = object_2.appearance
-        # In the special case that the Objects are exactly the same,
-        # just set a similarity of 1.0 without calculating.
-        if object_1 == object_2:
-            self.score = 1.0
-        else:
-            # Resize the image regions so that they're the exact same dimensions.
-            # Resize both horizontally and vertically down to the smaller of 
-            # each dimension between the two.
-            height = int(min(appearance_1.shape[0], appearance_2.shape[0]))
-            width = int(min(appearance_1.shape[1], appearance_2.shape[1]))
-            new_size = (width, height)
-            appearance_1 = cv2.resize(appearance_1, new_size)
-            appearance_2 = cv2.resize(appearance_2, new_size)
-            # Convert both appearances to grayscale.
-            #appearance_1 = cv2.cvtColor(appearance_1, cv2.COLOR_GR)
-            #appearance_2 = cv2.cvtColor(appearance_2, cv2.COLOR_BGR2GRAY)
-            # Get the similarity between the two image regions.
-            # Returns a float.
-            # RMSE gives us the difference, so we have to subtract it from 1.
-            # FSIM gives us a similarity, so we don't subtract it from 1.
-            # SSIM gives us a similarity. Closer to 1 is more similar.
-            similarity = quality_metrics.ssim(appearance_1, appearance_2)
-            # The score of this piece of evidence is the similarity between 
-            # their appearances.
-            self.score = similarity
-        # end if else
-    # end __init__
-
-    def __repr__(self):
-        return (f'VisualSimEv: {self.object_1}|{self.object_2}: {self.score}')
-    # end __repr__
-# end class VisualSimEv
-
-class AttributeSimEv(Evidence):
-    """
-    Evidence consisting of the similarity between the attributes of two Objects.
-
-    Here, 'attribute' refers to the attributes the Objects are annotated with
-    in a scene graph or are given when they are created.
-
-    Attributes
-    ----------
-    object_1 : Object
-        One of the Objects.
-    object_2 : Object
-        The other Object.
-    """
-
-    def __init__(self, object_1: Object, object_2: Object):
-        """
-        Initializes with the two Objects.
-
-        Calculates the attribute similarity between the by comparing their
-        attributes and seeing which ones match.
-        """
-        super().__init__()
-        self.object_1 = object_1
-        self.object_2 = object_2
-        # Judge their similarity by seeing how many of the attributes directly
-        # match each other. 
-        similarity = 0
-        for attribute_1 in object_1.attributes:
-            if attribute_1 in object_2.attributes:
-                similarity += 1
-        # end for
-        # Normalize for the number of attributes.
-        attribute_count = len(object_1.attributes) + len(object_2.attributes)
-        if not attribute_count == 0:
-            similarity = similarity / (attribute_count / 2)
-        # The score for this piece of evidence is the similarity score. 
-        self.score = similarity
-    # end __init__
-
-    def __repr__(self):
-        return (f'AttributeSimEv {self.object_1}|{self.object_2}: {self.score}')
-    # end __repr__
-
-# end class AttributeSimEv
+from hypothesis.evidence import (VisualSimEv, AttributeSimEv, CausalPathEv,
+                                 ContinuityEv, MultiCausalPathEv)
+from parameters import ParameterSet
 
 class Hypothesis:
     """
@@ -239,140 +66,6 @@ class Hypothesis:
 
 # end class Hypothesis
 
-class ConceptEdgeHyp(Hypothesis):
-    """
-    A Hypothesis that a relationship between two Instances' Concepts is a
-    real relationship between those Instances. 
-    
-    If the Hypothesis is accepted, the two Instances would get the Concept Edge
-    between them. 
-
-    Evidence for the Hypothesis is the ConceptEdgeEv between the two
-    Instances' Concepts.
-
-    Attributes
-    ----------
-    source_instance : Instance
-        One of the Instances. The source of the Edge is one of the Concepts of 
-        this Instance.
-    target_instance : Instance
-        The other Instance. The target of the Edge is one of the Concepts of 
-        this Instance.
-    edge : Edge
-        The Edge from the source Instance's Concept to the target Instance's 
-        Concept.
-    concept_edge_ev : ConceptEdgeEv
-        The evidence consisting of the concept edge between the source
-        instance's concept and the target instance's concept.
-    """
-    source_instance: Instance
-    target_instance: Instance
-    edge: Edge
-    concept_edge_ev: ConceptEdgeEv
-
-    def __init__(self, source_instance: Instance, target_instance: Instance, 
-                 edge: Edge):
-        """
-        Initializes a ConceptEdgeHyp with the source and target Instances
-        it's about and the Edge between the Instance's Concepts.
-
-        Makes its own ConceptEdgeEv out of the Edge that's passed in, so 
-        no evidence needs to be provided.
-        """
-        # Name this hypothesis after the instances it's hypothesizing an edge
-        # between and its id.
-        name = (f'conceptedge_h_{Hypothesis._next_id}_{source_instance.name}_' + 
-                f'{target_instance.name}')
-        super().__init__(name=name)
-        
-        self.source_instance = source_instance
-        self.target_instance = target_instance
-        self.edge = edge
-        # Make evidence out of the edge passed in.
-        self.concept_edge_ev = ConceptEdgeEv(edge)
-    # end __init__
-
-    def __repr__(self):
-        return (f'ConceptEdge h_{self.id} {self.source_instance}->{self.edge.relationship}'+
-                f'->{self.target_instance}. Score: {self.score}')
-    # end __str__
-
-    def get_individual_score(self):
-        """
-        Gets the score for accepting this hypothesis alone.
-        """
-        individual_score = self.concept_edge_ev.score
-        return individual_score
-    # end get_individual_score
-
-# end class ConceptEdgeHypothesis
-
-class NewObjectHyp(Hypothesis):
-    """
-    A Hypothesis that an Object exists which was not observed in a scene graph.
-
-    If the Hypothesis is accepted, the hypothetical Object would be added to
-    the KnowledgeGraph.
-
-    Evidence for this Hypothesis is the OtherHypEv for a series of 
-    ConceptEdgeHypotheses, each hypothesizing an Edge between the hypothetical 
-    Object's Concept and another Object's Concept in the same scene.
-
-    Attributes
-    ----------
-    obj : Object
-        The hypothesized Object.
-    concept_edge_hyps : list[Hypothesis]
-        The hypothesized Concept Edges from the hypothesized Object's Concept
-        to each other Instance's Concept in the same scene.
-    concept_edge_hyp_ev : list[OtherHypEv]
-        The other hypothesis evidence consisting of evidence made out of the
-        concept edge hypotheses from the hypothesized Object's Concept to each
-        other Instance's Concept in the same scene.
-    """
-    obj: Object
-    concept_edge_hyps: list[Hypothesis]
-    concept_edge_hyp_ev: list[OtherHypEv]
-
-    def __init__(self, obj: Object, concept_edge_hyps: list[Hypothesis]):
-        """
-        Initializes a NewObjectHyp with the hypothetical Object and
-        the ConceptEdgeHypotheses between it and the other Objects in its
-        scene. 
-
-        Makes its own OtherHypEv out of the ConceptEdgeHypotheses
-        passed in, so no Evidence needs to be provided.
-
-        Also sets itself as a premise for every ConceptEdgeHypothesis provided
-        to it. 
-        """
-        name = (f'newobj_h_{Hypothesis._next_id}_{obj.name}')
-        super().__init__(name=name)
-        # Make this Hypothesis a premise of every ConceptEdgeHypothesis passed
-        # in, since they wouldn't exist without this Hypothesis' hypothetical
-        # Instance.
-        for hypothesis in concept_edge_hyps:
-            hypothesis.add_premise(premise=self)
-        self.obj = obj
-        self.concept_edge_hyps = concept_edge_hyps
-        # Make OtherHypEv for each concept edge hypothesis passed in.
-        self.concept_edge_hyp_ev = [OtherHypEv(h) for h in concept_edge_hyps]
-    # end __init__
-
-    def __repr__(self):
-        return (f'{self.name}. ' + 
-                f'Concept edges: {len(self.concept_edge_hyps)}. ')
-    # end __repr__
-
-    def get_individual_score(self):
-        """
-        Gets the score for accepting this hypothesis alone.
-        """
-        individual_score = 0
-        return individual_score
-    # end get_individual_score
-# end NewObjectHyp
-
 class SameObjectHyp(Hypothesis):
     """
     A Hypothesis that two Object Instances represent the same Object. 
@@ -416,9 +109,13 @@ class SameObjectHyp(Hypothesis):
         self.object_2 = object_2
         self.visual_sim_ev = VisualSimEv(object_1, object_2)
         self.attribute_sim_ev = AttributeSimEv(object_1, object_2)
+        # The weight of this edge would be the score of this hypothesis, which
+        # won't be known for sure until we know what parameter set is being used
+        # to score the Hypothesis.
+        # For now, set it to 0.
         self.edge = Edge(source=self.object_1, target=self.object_2,
                          relationship=str(EdgeRelationship.DUPLICATE_OF), 
-                         weight=self.get_individual_score(),
+                         weight=0,
                          hypothesized=True)
     # end __init__
 
@@ -435,6 +132,19 @@ class SameObjectHyp(Hypothesis):
                 else False)
     # end has_object
 
+    def has_object_concept(self, object_: Object):
+        '''
+        Whether or not the concept of the Object passed in is the concept of
+        one of the two Objects this SameObjectHyp is between.
+        '''
+        if (self.object_1.has_concept(object_.concepts[0])
+            or self.object_2.has_concept(object_.concepts[0])):
+            return True
+        else:
+            return False
+    # end has_object_concept
+        
+
     def get_other_object(self, object: Object):
         """
         Returns the Object for this SameObjectHyp which is not the
@@ -446,185 +156,404 @@ class SameObjectHyp(Hypothesis):
                 None)
     # end get_other_object
 
-    def get_individual_score(self):
+    def get_shared_object(self, hypothesis: Hypothesis):
         """
-        Gets the score for accepting this hypothesis alone.
+        Returns the Object in this SameObjectHyp that appears in the hypothesis
+        passed in. If neither of this Hypothesis' objects appear in the hypothesis
+        passed in, returns None.
+        """
+        return (self.object_1 if hypothesis.has_object(self.object_1) else
+                self.object_2 if hypothesis.has_object(self.object_2) else
+                None)
+    # end get_shared_object
+
+    def get_individual_score(self, p_set: ParameterSet):
+        """
+        Gets the score for accepting this hypothesis alone
+        for a given parameter set.
         """
         # Add each similarity evidence's score.
-        individual_score = self.visual_sim_ev.score
-        individual_score += self.attribute_sim_ev.score
+        # VisualSimEv score.
+        visual_sim_ev_score = self.visual_sim_ev.score
+        # Apply the threshold.
+        if visual_sim_ev_score < p_set.visual_sim_ev_thresh:
+            visual_sim_ev_score -= p_set.visual_sim_ev_thresh
+        # Apply the weight
+        visual_sim_ev_score *= p_set.visual_sim_ev_weight
+
+        # AttributeSimEv score
+        attribute_sim_ev_score = self.attribute_sim_ev.score
+        # Apply the threshold.
+        if attribute_sim_ev_score < p_set.attribute_sim_ev_thresh:
+            attribute_sim_ev_score -= p_set.attribute_sim_ev_thresh
+        # Apply the weight.
+        attribute_sim_ev_score *= p_set.attribute_sim_ev_weight
+
+        individual_score = visual_sim_ev_score + attribute_sim_ev_score
         return individual_score
     # end get_individual_score
 
 # end class SameObjectHyp
 
-class PersistObjectHyp(Hypothesis):
+class CausalSequenceHyp(Hypothesis):
     """
-    A hypothesis that an Object in one image persists into another image
-    as an off-screen Object. 
+    A Hypothesis that two Action Instances are in a causal sequence with one
+    another. 
 
-    Evidence is a NewObjectHyp for an offscreen Object in the
-    other image that is an exact copy of the persisting Object and an
-    SameObjectHyp between the persisting Object and its offscreen
-    copy in the other image.
+    More specifically, that the source_action leads to the target_action.
+
+    If the Hypothesis is accepted, the two Actions would get a 'leads-to' edge
+    pointing from the source action to the target action. Makes its own
+    'leads-to' edge when instantiated.
+
+    Evidence is the CausalPathEv from the source action to the target action.
 
     Attributes
     ----------
-    object_ : Object
-        The existing Object that's hypothesized to persist into another image.
-    new_object_hyp : NewObjectHyp
-        The hypothesis hypothesizing a copy of the persisting object exists in 
-        another image.
-    same_object_hyp : SameObjectHyp
-        The hypothesis hypothesizing that the copy of the persisting object is
-        its duplicate. 
-    new_object_hyp_ev : OtherHypEv
-        Evidence consisting of a new object hypothesis hypothesizing that a copy 
-        of the persisting object exists in another image.
-    same_object_hyp_ev : OtherHypEv
-        Evidence consisting of a same object hypothesis hypothesizing that the
-        copy of the persisting object in the other image is the same as the
-        original object it's a copy of. 
+    source_action : Action
+        The Action that comes before in the causal sequence.
+    target_action : Action
+        The Action that comes after in the causal sequence.
+    edge : Edge
+        The 'leads-to' edge from the source action to the target action. 
+        Since this is the edge indicating which action leads to which other
+        action, the edge will always point forward. This means that
+        if the direction of this hypothesis is backwards, the edge's source will 
+        be the target_action and its target will be the source_action.
+    causal_path_evs : list[CausalPathEv]
+        A list of Evidence, where each piece of Evidence consists of the causal 
+        path from the source action to the target action.
+    multi_causal_path_evs : List[MultiCausalPathEv]
+        A list of Evidence, where each piece of Evidence consists of the
+        multi-step causal paths from the source action to the target action.
+    continuity_evs : list[ContinuityEv]
+        A list of evidence, where each piece of Evidence consists of a 
+        same object hyp between one of the source action's objects and one of the
+        target action's objects.
+    direction : CausalFlowDirection
+        The direction that the original causal relationship points. If it
+        is forwards, neutral, or NONE, then we assume that the source action 
+        leads-to the target action.
+        If it is backwards, then the target_action leads-to the source_action.
     """
 
-    def __init__(self, object_: Object, 
-                 new_object_hyp: NewObjectHyp,
-                 same_object_hyp: SameObjectHyp):
-        """
-        Initializes with the existing Object that's hypothesized to persist,
-        its NewObjectHyp, and its SameObjectHyp.
+    source_action: Action
+    target_action: Action
+    edge: Edge
+    causal_path_evs: list[CausalPathEv]
+    multi_causal_path_evs: list[MultiCausalPathEv]
+    continuity_evs: list[ContinuityEv]
+    direction: CausalFlowDirection
 
-        Builds its own OtherHypEv.
-        """
-        name = (f'objpersist_h_{Hypothesis._next_id}_{object_.name}')
-        super().__init__(name=name)
-        self.object_ = object_
-        self.new_object_hyp = new_object_hyp
-        self.new_object_hyp_ev = OtherHypEv(new_object_hyp)
-        self.same_object_hyp = same_object_hyp
-        self.same_object_hyp_ev = OtherHypEv(same_object_hyp)
-        # Adds the two Hypotheses used as evidence as premises to this
-        # hypothesis.
-        self.add_premise(new_object_hyp)
-        self.add_premise(same_object_hyp)
-    # end __init__
+    # Affect curve scores per p-set id.
+    affect_curve_scores: dict[int, float]
 
-    def get_individual_score(self):
-        """
-        Gets the score for accepting this hypothesis alone.
-        """
-        individual_score = 0
-        return individual_score
-    # end get_individual_score
-
-# end PersistObjectHyp
-
-class NewActionHyp(Hypothesis):
-    """
-    A Hypothesis that an Action exists which was not observed in a scene graph.
-
-    If the Hypothesis is accepted, the hypothetical Action would be added to
-    the KnowledgeGraph.
-
-    Evidence for this Hypothesis is the OtherHypEv for a series of 
-    ConceptEdgeHypotheses, each hypothesizing an Edge between the hypothetical 
-    Action's Concept and another Instance's Concept in the same scene.
-
-    Attributes
-    ----------
-    action : Action
-        The hypothesized Object.
-    concept_edge_hyps : list[Hypothesis]
-        The hypothesized Concept Edges from the hypothesized Action's Concept
-        to each other Instance's Concept in the same scene.
-    concept_edge_hyp_ev : list[OtherHypEv]
-        The other hypothesis evidence consisting of evidence made out of the
-        concept edge hypotheses from the hypothesized Action's Concept to each
-        other Instance's Concept in the same scene.
-    """
-    action: Action
-    concept_edge_hyps: list[Hypothesis]
-    concept_edge_hyp_ev: list[OtherHypEv]
-
-    def __init__(self, action: Action, concept_edge_hyps: list[Hypothesis]):
-        """
-        Initializes a NewActionHyp with the hypothetical Action and
-        the ConceptEdgeHypotheses between it and the other Instances in its
-        scene. 
-
-        Makes its own OtherHypEv out of the ConceptEdgeHypotheses
-        passed in, so no Evidence needs to be provided.
-
-        Also sets itself as a premise for every ConceptEdgeHypothesis provided
-        to it. 
-        """
-        name = (f'newact_h_{Hypothesis._next_id}_{action.name}')
-        super().__init__(name=name)
-        # Make this Hypothesis a premise of every ConceptEdgeHypothesis passed
-        # in, since they wouldn't exist without this Hypothesis' hypothetical
-        # Instance.
-        for hypothesis in concept_edge_hyps:
-            hypothesis.add_premise(premise=self)
-        self.action = action
-        self.concept_edge_hyps = concept_edge_hyps
-        # Make OtherHypEv for each concept edge hypothesis passed in.
-        self.concept_edge_hyp_ev = [OtherHypEv(h) for h in concept_edge_hyps]
+    def __init__(self, source_action: Action,
+                 target_action: Action):
+        name = (f'causal_h_{Hypothesis._next_id}_{source_action.name}_{target_action.name}')
+        super().__init__(name)
+        self.source_action = source_action
+        self.target_action = target_action
+        self.causal_path_evs = list()
+        self.multi_causal_path_evs = list()
+        self.continuity_evs = list()
+        self.direction = CausalFlowDirection.NONE
+        self.edge = Edge(source=source_action,
+                         target=target_action,
+                         relationship='leads-to',
+                         weight=0,
+                         hypothesized=True)
+        self.affect_curve_scores = dict()
     # end __init__
 
     def __repr__(self):
-        return (f'{self.name}. ' + 
-                f'Concept edges: {len(self.concept_edge_hyps)}. ')
+        if self.direction is CausalFlowDirection.BACKWARD:
+            return (f'{self.source_action}<-leads-to<-{self.target_action} ({self.edge.weight})')
+        else:
+            return (f'{self.source_action}->leads-to->{self.target_action} ({self.edge.weight})')
     # end __repr__
 
-    def get_individual_score(self):
+    def add_causal_path_ev(self, causal_path_ev: CausalPathEv):
         """
-        Gets the score for accepting this hypothesis alone.
+        Adds a piece of causal path evidence to this Hypothesis.
         """
-        individual_score = 0
-        return individual_score
-    # end get_individual_score
-# end NewActionHyp
+        self.causal_path_evs.append(causal_path_ev)
+        # Add the new evidence's score to the Edge's weight.
+        self.edge.weight += causal_path_ev.score
+        # Update the causal flow direction according to the direction of the
+        # causal path evidence. 
+        self._update_direction(causal_path_ev)
 
+    # end add_causal_path_ev
 
-class ActionHypothesis(Hypothesis):
-    """
-    A Hypothesis that an Action is occuring that hasn't been directly observed.
-
-    If the Hypothesis is accepted, the Action in question would be added to
-    the knowledge graph. 
-
-    Attributes
-    ----------
-    action : Action
-        The hypothesized Action.
-    """
-    def __init__(self, action: Action, evidence: list[Evidence]):
-        # Name this hypothesis after the action it's hypothesizing and its id.
-        name = (f'h_{action.label}_{Hypothesis._next_id}')
-        super().__init__(name=name, 
-                         evidence=evidence)
-        self.action = action
-        self.calculate_score()
-    # end __init__
-
-    def __repr__(self):
-        return (f'{self.name}')
-    # end __repr__
-    
-    def calculate_score(self):
+    def add_multi_causal_path_ev(self, multi_causal_path_ev: MultiCausalPathEv):
         """
-        Calculates the score for this ActionHypothesis. Score is based on:
-
-        The total weight of the Edges leading from the hypothesized Action's
-        Concept to the Concepts of existing Instances.
+        Adds a piece of MultiCausalPathEvidence to this Hypothesis.
         """
-        score = 0
-        
-        for evidence in self.evidence:
-            score += evidence.score
+        self.multi_causal_path_evs.append(multi_causal_path_ev)
+        # Add the new evidence's score to the Edge's weight.
+        self.edge.weight += multi_causal_path_ev.score
+        # Update the causal flow direction according to the direction of the
+        # causal path evidence. 
+        self._update_direction(multi_causal_path_ev)
+    # end add_multi_causal_path_ev
+
+    def _update_direction(self, causal_path_ev: Union[CausalPathEv, MultiCausalPathEv]):
+        """
+        Update the direction of this hypothesis according to a piece of
+        either CausalPathEv or MultiCausalPathEv.
+        """
+        # First, see if the causal path evidence's source is this hypothesis'
+        # source. If not, it actually points from the target to the source and
+        # its direction should be flipped.
+        evidence_direction = causal_path_ev.direction
+        if causal_path_ev.target_action == self.source_action:
+            if evidence_direction == CausalFlowDirection.FORWARD:
+                evidence_direction = CausalFlowDirection.BACKWARD
+            elif evidence_direction == CausalFlowDirection.BACKWARD:
+                evidence_direction = CausalFlowDirection.FORWARD
+            # end elif
+        # end if
+                
+        if self.direction == CausalFlowDirection.NONE:
+            self.direction = evidence_direction
+            # Adjust the edge if the direction is now backwards.
+            if self.direction == CausalFlowDirection.BACKWARD:
+                old_source = self.edge.source
+                self.edge.source = self.edge.target
+                self.edge.target = old_source
+            # end if
+        # end if
+        elif not self.direction == evidence_direction:
+            # Adjust the edge if the direction was backward and is now
+            # becoming neutral.
+            if self.direction == CausalFlowDirection.BACKWARD:
+                old_source = self.edge.source
+                self.edge.source = self.edge.target
+                self.edge.target = old_source
+            # end if
+            self.direction = CausalFlowDirection.NEUTRAL
+        # end elif
+    # end _update_direction
+            
+    def add_continuity_ev(self, continuity_ev: ContinuityEv):
+        """
+        Adds a piece of continuity evidence to this Hypothesis.
+        """
+        self.continuity_evs.append(continuity_ev)
+    # end add_continuity_ev
+
+    def get_individual_score(self, p_set: ParameterSet):
+        """
+        Gets the score for accepting this hypothesis alone
+        for a given parameter set.
+        """
+
+        # Add each causal path evidence's scores together.
+        total_causal_path_score = 0
+        for causal_path_ev in self.causal_path_evs:
+            causal_path_ev_score = causal_path_ev.score
+            ## Apply the threshold.
+            #if causal_path_ev_score < p_set.causal_path_ev_thresh:
+            #    causal_path_ev_score -= p_set.causal_path_ev_thresh
+            ## Apply the weight.
+            #causal_path_ev_score *= p_set.causal_path_ev_weight
+            total_causal_path_score += causal_path_ev_score
+        # end for
+        for multi_causal_path_ev in self.multi_causal_path_evs:
+            multi_causal_path_ev_score = multi_causal_path_ev.score
+            ## Apply the threshold.
+            #if multi_causal_path_ev_score < p_set.causal_path_ev_thresh:
+            #    multi_causal_path_ev_score -= p_set.causal_path_ev_thresh
+            ## Apply the weight.
+            #multi_causal_path_ev_score *= p_set.causal_path_ev_weight
+            total_causal_path_score += multi_causal_path_ev_score
         # end for
 
-        self.score = score
-    # end calculate_score
-# end ActionHypothesis
+        # Apply the threshold.
+        if total_causal_path_score < p_set.causal_path_ev_thresh:
+            total_causal_path_score -= p_set.causal_path_ev_thresh
+        # Apply the weight.
+        total_causal_path_score *= p_set.causal_path_ev_weight
 
+        if (self.id == 3):
+            print('Teach leads-to hold')
+        # See how much this causal sequence link obeys the affect curve.
+        # Get the index of the image of the source action. 
+        source_index = self.get_true_source_image().index
+        target_index = self.get_true_target_image().index
+        # Get the desired affect at each of these indices.
+        source_affect = p_set.affect_curve[source_index]
+        target_affect = p_set.affect_curve[target_index]
+        # See what the desired affect change is from source image to
+        # target image.
+        desired_affect_change = target_affect - source_affect
+        
+        # Now see what the affect change between this system's source action
+        # and target action are.
+        source_action_affect = self.get_true_source_action().concepts[0].sentiment
+        target_action_affect = self.get_true_target_action().concepts[0].sentiment
+        action_affect_change = target_action_affect - source_action_affect
+
+        correct_change = False
+        reverse_change = False
+
+        affect_curve_score = 0
+        # 1. See if it matches the direction of change in affect. This gives it
+        # a base score of 0.25.
+        # This only applies if the direction of change is not 0.
+        # If they're in the same direction, multiplying the changes together
+        # results in a positive number. 
+        if (not desired_affect_change == 0
+            and (desired_affect_change * action_affect_change > 0)):
+            correct_change = True
+            affect_curve_score += 0.25
+        # If they're in opposite directions, multiplying the changes together
+        # results in a negative number. 
+        elif (not desired_affect_change == 0
+              and (desired_affect_change * action_affect_change < 0)):
+            correct_change = False
+        # end elif
+
+        # 2. Increase score by some amount for each action whose sentiment 
+        # matches the target affect if the affect change is in the right 
+        # direction. This increases the score by 0.25 each. 
+        if correct_change:
+            if source_action_affect == source_affect:
+                affect_curve_score += 0.25
+            if target_action_affect == target_affect:
+                affect_curve_score += 0.25
+
+        # 3. If it matches the magnitude and the change is in the correct 
+        # direction, increase score by 0.25. 
+        if (correct_change and desired_affect_change == action_affect_change):
+            affect_curve_score += 0.25
+
+        # If the affect change is reversed, add a score component of -1.
+        if (reverse_change):
+            affect_curve_score = -1
+
+        # Apply the threshold.
+        if affect_curve_score < p_set.affect_curve_thresh:
+            affect_curve_score -= p_set.affect_curve_thresh
+        # Apply the weight.
+        affect_curve_score *= p_set.affect_curve_weight
+
+        # Store the result.
+        self.affect_curve_scores[p_set.id] = affect_curve_score
+
+        individual_score = total_causal_path_score + affect_curve_score
+
+        return individual_score
+    # end get_individual_score
+        
+    def get_true_source_action(self) -> Action:
+        return self.edge.source
+    
+    def get_true_target_action(self) -> Action:
+        return self.edge.target
+
+    def get_true_source_image(self):
+        return self.get_true_source_action().get_image()
+    
+    def get_true_target_image(self):
+        return self.get_true_target_action().get_image()
+    
+# end CausalSequenceHyp
+    
+class HypothesisSet():
+    """
+    A set of hypotheses with a negative-numbered id.
+
+    Attributes
+    ----------
+    id : int
+        A unique integer identifier for this HypothesisSet.
+        HypothesisSet IDs are always negative.
+    hypotheses : dict[int, Hypothesis]
+        The hypotheses in this set.
+    is_all_or_ex : bool
+        Whether or not this set is an all or exclusive set.
+        If it is an all or exclusive set, then either all the members of the set 
+        get accepted together or none of its members get accepted together.
+        i.e. it is acceptable if:
+            All members of the set are accepted.
+            One member of the set is accepted.
+            No members of the set are accepted.
+    """
+
+    id: int
+    hypotheses: dict[int, Hypothesis]
+    is_all_or_ex: bool
+
+    # Class variable to make unique IDs when a new hypothesis set is made.
+    _next_id = -1
+    def __init__(self, 
+                 hypotheses: list[Hypothesis],
+                 is_all_or_ex: bool):
+        self.id = HypothesisSet._next_id
+        HypothesisSet._next_id -= 1
+        self.hypotheses = {h.id: h for h in hypotheses}
+        self.is_all_or_ex = is_all_or_ex
+    # end __init__
+        
+    def get_hypothesis_list(self):
+        return list(self.hypotheses.values())
+    
+    def contains_all(self, hyp_list: list[Hypothesis]) -> bool:
+        """
+        Returns whether this hypothesis set contains all of the hypotheses
+        in a list.
+        """
+        for hyp in hyp_list:
+            if not hyp.id in self.hypotheses:
+                return False
+        # end for
+        return True
+    # end contains_all
+    
+    def __contains__(self, item):
+        """
+        Checks whether this hypothesis set contains a hypothesis.
+
+        Can pass either a hypothesis or its id.
+        """
+        # Resolve based on the item's type.
+        if issubclass(type(item), Hypothesis):
+            return True if item.id in self.hypotheses else False
+        elif type(item) is int:
+            return True if item in self.hypotheses else False
+        else:
+            return False
+    # end __contains__
+    
+    def __len__(self):
+        '''
+        The length of a hypothesis set is the number of hypotheses in the set.
+        '''
+        return len(self.hypotheses)
+    # end __len__
+# end class HypothesisSet
+        
+class CausalHypChain(HypothesisSet):
+    """
+    An ordered chain of causal sequence hypotheses.
+    
+    Attributes
+    ----------
+    hyp_id_sequence : List[int]
+        An list of the IDs of the hypotheses in this chain in the order that
+        those hypotheses appear in the chain.
+    """
+
+    hyp_id_sequence: list[int]
+
+    def __init__(self, hypotheses: list[CausalSequenceHyp]):
+        super().__init__(hypotheses=hypotheses, is_all_or_ex=False)
+        self.hyp_id_sequence = [h.id for h in hypotheses]
+    # end  __init__
+        
+    def get_first_hyp(self):
+        return self.hypotheses[self.hyp_id_sequence[0]]
+    # end get_first_hyp
+# end class CausalHypChain

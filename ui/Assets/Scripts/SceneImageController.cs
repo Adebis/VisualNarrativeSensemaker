@@ -17,7 +17,7 @@ public class SceneImageController : MonoBehaviour
         this.raw_image = this.GetComponent<RawImage>();
         // Read in the image as a byte array and load it onto a 2d texture.\
         string top_directory = Path.GetDirectoryName(Path.GetDirectoryName(Application.dataPath));
-        string image_file_path = Path.Join(top_directory, image_data.file_path);
+        string image_file_path = Path.Join(top_directory, image_data.file_path.Replace("/", "\\"));
         print("Loading image at " + image_file_path);
         byte[] image_bytes = File.ReadAllBytes(image_file_path);
         // Turn it into a 2D texture.

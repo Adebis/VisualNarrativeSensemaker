@@ -1,0 +1,14 @@
+CREATE TABLE action_to_action_causal_links AS
+	SELECT *
+	FROM causal_links
+	WHERE
+		EXISTS (
+			SELECT 1
+			FROM image_actions
+			WHERE causal_links.source_node_id = cs_node_id
+			)
+		AND EXISTS (
+			SELECT 1
+			FROM image_actions
+			WHERE causal_links.target_node_id = cs_node_id
+			)

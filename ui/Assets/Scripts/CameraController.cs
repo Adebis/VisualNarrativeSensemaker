@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.Tracing;
 using UnityEngine;
 
 public class CameraController : MonoBehaviour
@@ -22,6 +23,8 @@ public class CameraController : MonoBehaviour
     public Vector3 next_position;
     // The next orthographic size the camera will grow or shrink towards.
     public float next_size;
+    // Where the mouse was in world-space coordinates when the camera began to zoom.
+    public Vector3 mouse_start_position;
 
     // The camera this camera controller is controlling.
     private new Camera camera;
@@ -32,6 +35,7 @@ public class CameraController : MonoBehaviour
         this.next_position = new Vector3(0, 0, -10);
         this.next_size = 1;
         this.camera = this.gameObject.GetComponent<Camera>();
+        this.mouse_start_position = this.camera.ScreenToWorldPoint(Input.mousePosition);
     }
 
     // Update is called once per frame
@@ -66,12 +70,37 @@ public class CameraController : MonoBehaviour
         if (Input.mouseScrollDelta.y != 0)
         {
             this.next_size += -Input.mouseScrollDelta.y * this.ZoomSpeed;
+            // Also moves the camera such that the mouse stays in the same world position. 
+            // If we're going to adjust the screen after this so that the mouse is in the same world space
+            // coordinates as before the zoom, we need to log where the mouse started in world coords.
+            this.mouse_start_position = this.camera.ScreenToWorldPoint(Input.mousePosition);
         }
 
         // Clamp the size.
         if (this.next_size < this.minimum_size)
         {
             this.next_size = this.minimum_size;
+        }
+
+        // Change the camera's size towards its new size.
+        if (this.next_size != this.camera.orthographicSize)
+        {
+            /*this.camera.orthographicSize = (this.camera.orthographicSize +
+                (this.next_size - this.camera.orthographicSize) * (Time.deltaTime * this.smoothness));
+            // If it's close enough to its target size, snap to its target size.
+            if (Mathf.Abs(this.next_size - this.camera.orthographicSize) < 1)
+            {
+                this.camera.orthographicSize = this.next_size;
+            }*/
+            // Snap camera to new zoom size. 
+            this.camera.orthographicSize = this.next_size;
+
+            // Get the vector of the mouse's movement in world-space.
+            Vector3 mouse_diff = this.mouse_start_position - this.camera.ScreenToWorldPoint(Input.mousePosition);
+            mouse_diff.z = 0;
+            // Apply that same movement to the camera so the mouse is back where it was in world-space.
+            this.gameObject.transform.position += mouse_diff;
+            this.next_position = this.gameObject.transform.position;
         }
 
         // Move the camera towards its new position.
@@ -88,17 +117,6 @@ public class CameraController : MonoBehaviour
                 this.gameObject.transform.position = this.next_position;
             }
         }//end if
-        // Change the camera's size towards its new size.
-        if (this.next_size != this.camera.orthographicSize)
-        {
-            this.camera.orthographicSize = (this.camera.orthographicSize + 
-                (this.next_size - this.camera.orthographicSize) * (Time.deltaTime * this.smoothness));
-            // If it's close enough to its target size, snap to its target size.
-            if (Mathf.Abs(this.next_size - this.camera.orthographicSize) < 1)
-            {
-                this.camera.orthographicSize = this.next_size;
-            }
-        }
     }
 
     public void SetNextPosition(Vector3 next_position)
