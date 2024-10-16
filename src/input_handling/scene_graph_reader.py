@@ -9,6 +9,7 @@ from constants import ConceptType
 from commonsense import querier
 from commonsense.commonsense_data import Synset
 from commonsense.querier import CommonSenseQuerier
+from commonsense.cskg_querier import CSKGQuerier
 from knowledge_graph.graph import KnowledgeGraph 
 from knowledge_graph.items import (Node, Concept, Object, Action, Edge, 
                                    EdgeRelationship)
@@ -23,14 +24,17 @@ class SceneGraphReader:
 
     Attributes
     ----------
-    _commonsense_querier : CommonSenseQuerier
-        A CommonSenseQuerier for interacting with commonsense data. 
-        Initialization of a CommonSenseQuerier takes some time, so an existing 
-        CommonSenseQuerier should be given to this object on initialization.
+    _commonsense_querier : CSKGQuerier
+        A CSKGQuerier for interacting with commonsense data. 
+        Initialization of a CSKGQuerier takes some time, so an existing 
+        CSKGQuerier should be given to this object on initialization.
+    _knowledge_graph : KnowledgeGraph
+        A default knowledge graph.
     """
-    def __init__(self, commonsense_querier: CommonSenseQuerier):
+    def __init__(self, commonsense_querier: CSKGQuerier):
         print("Initializing scene graph reader")
         self._commonsense_querier = commonsense_querier
+        #self._knowledge_graph = KnowledgeGraph(self._commonsense_querier)
     # end __init__
 
     def read_scene_graphs(self, image_ids: int):
@@ -85,9 +89,16 @@ class SceneGraphReader:
         """
 
         annotations_file_path = (f'{const.ANNOTATIONS_DIRECTORY}/{image.id}.json')
+        # Check if the annotation file exists and is non-empty.
+        # If not, then don't try and read it.
+        if (not os.path.isfile(annotations_file_path)
+            or os.stat(annotations_file_path).st_size == 0):
+            print('Annotation file ' + str(annotations_file_path) + ' invalid. Skipping.')
+            return
+        # end if
         scene_graph_json = json.load(open(annotations_file_path, 'r'))
 
-        # Populate Object nodes in the knowlede graph from the scene graph.
+        # Populate Object nodes in the knowledge graph from the scene graph.
         id_map = self._populate_objects(knowledge_graph, image, 
                                         scene_graph_json)
 
@@ -141,7 +152,9 @@ class SceneGraphReader:
                 wn_synsets = list()
                 for name in object_entry['names']:
                     wn_synset = querier.find_synset(name, 
-                                                    pos=wn.NOUN)
+                        pos=wn.NOUN,
+                        lemmatizer=self._commonsense_querier.lemmatizer
+                    )
                     if not wn_synset is None:
                         wn_synsets.append(wn_synset)
                 # end for
@@ -251,8 +264,9 @@ class SceneGraphReader:
             for sg_object in object_node.scene_graph_objects:
                 object_id = sg_object.object_id
                 for rel_entry in scene_graph_json['relationships']:
-                    if (rel_entry['object_id'] == object_id or 
-                        rel_entry['subject_id'] == object_id):
+                    if (('object_id' in rel_entry 
+                         and rel_entry['object_id'] == object_id) 
+                         or rel_entry['subject_id'] == object_id):
                         score += 1
                 # end for
             # end for
@@ -353,52 +367,96 @@ class SceneGraphReader:
             # For each synset in the synset list, make a Synset object.
             # Action synsets aren't reliable, so we always have to look for
             # synsets based on the predicate.
-            #synsets = [Synset(synset_name) for synset_name 
-            #           in rel_entry['synsets']]
-            synsets = list()
-            wn_synset = querier.find_synset(rel_entry['predicate'], 
-                                            wn.VERB)
-            if not wn_synset is None:
-                synsets = [Synset(wn_synset.name())]
-            # Filter out any synsets that are of filtered action words.
-            synsets = [synset for synset in synsets 
-                       if not synset.word in const.FILTERED_ACTIONS]
-            # If there are no synsets, skip this action.
-            if len(synsets) == 0:
+            synsets = [Synset(synset_name) for synset_name 
+                       in rel_entry['synsets']]
+            
+            # Check if either the object or the subject of this relationship
+            # doesn't appear in the ID map.
+            # If so, it wasn't parsed when scene graph objects were being read,
+            # so we can't make actions incident on that object.
+            if 'object_id' in rel_entry and not rel_entry['object_id'] in id_map:
+                continue
+            if not rel_entry['subject_id'] in id_map:
                 continue
             # end if
-            # Remove any duplicate synsets.
-            synsets_dedupe = list()
-            for synset in synsets:
-                if not synset in synsets_dedupe:
-                    synsets_dedupe.append(synset)
-            # end for
-            synsets = synsets_dedupe
+
+            action_term = rel_entry['predicate']
+
+            concepts = list()
+            skip_action = False
+            if len(synsets) == 0:
+                synsets, concepts = self.get_action_synsets_and_concepts(
+                    knowledge_graph,
+                    action_term)
+            # Special case: go-to actions.
+            # We encode specific go-to actions (e.g. go to park) in the scene
+            # graphs for the evaluation. 
+            # If this is one of them, the synset will be "go.v.01"
+            # The predicate (action_term) will be "go_to_{location}", e.g. "go_to_park".
+            elif synsets[0].name == 'go.v.01':
+                # Search directly for the ConceptNetNode with the uri
+                # /c/en/go_to_{location}
+                uri = '/c/en/' + action_term
+                cs_node = self._commonsense_querier.get_node_by_uri(uri)
+                concept = knowledge_graph.get_or_make_concept(
+                    search_item=cs_node,
+                    concept_type=ConceptType.ACTION,
+                    synset=synsets[0]
+                )
+                concepts.append(concept)
+            # end if
+            else:
+                # If there are synsets, just get concepts for them.
+                # There should only be one synset.
+                for synset in synsets:
+                    # Filter out any actions whose synsets are of filtered action words.
+                    if synset.word in const.FILTERED_ACTIONS:
+                        skip_action = True
+                        continue
+                    concept = knowledge_graph.get_or_make_concept(synset,
+                                                                  ConceptType.ACTION)
+                    concepts.append(concept)
+                # end for
+            # end else
+
+            # If no synsets could be found, skip this action.
+            if len(synsets) == 0:
+                continue
+
+            if skip_action:
+                continue
+
+            # Not all relationships have objects.
+            # If this one does not, set the object_id to -1.
+            object_id = -1
+            if 'object_id' in rel_entry:
+                object_id = rel_entry['object_id']
+
             # Make a scene graph relationship object for each relationship 
             # entry.
             sg_rel = SceneGraphRelationship(predicate=rel_entry['predicate'],
                                             synsets=synsets,
                                             relationship_id=
                                                 rel_entry['relationship_id'],
-                                            object_id=rel_entry['object_id'],
+                                            object_id=object_id,
                                             subject_id=rel_entry['subject_id'],
                                             image=image)
 
-            # Get or make the Concepts for this node.
-            concepts = list()
-            for synset in synsets:
-                concept = knowledge_graph.get_or_make_concept(synset,
-                                                              ConceptType.ACTION)
-                concepts.append(concept)
-            # end for
-
             # Get the object nodes for this relationship's object and subject.
-            object_node = knowledge_graph.nodes[id_map[sg_rel.object_id]]
+            # Handle relationships without objects here.
+            object_node = None
+            if not object_id == -1:
+                object_node = knowledge_graph.nodes[id_map[sg_rel.object_id]]
             subject_node = knowledge_graph.nodes[id_map[sg_rel.subject_id]]
 
             # Make the action node.
             # Let the word for its first synset be the Action's label.
-            action_node = Action(label=sg_rel.synsets[0].word,
+            label = sg_rel.synsets[0].word
+            # Special case for go-to objects: just use the whole predicate
+            # as the label.
+            if synsets[0].name == 'go.v.01':
+                label = action_term
+            action_node = Action(label=label,
                                  image=sg_rel.image,
                                  subject=subject_node,
                                  object=object_node,
@@ -433,7 +491,16 @@ class SceneGraphReader:
                 # with this object node as the subject.
                 # Find a synset using the attribute.
                 # Look specifically for a verb.
-                wn_synset = querier.find_synset(attribute, 'v')
+                wn_synset = querier.find_synset(
+                    attribute, 
+                    'v',
+                    lemmatizer=self._commonsense_querier.lemmatizer
+                )
+                # If no synset could be found, continue to the next
+                # attribute.
+                if (wn_synset is None):
+                    continue
+                # end if
                 synset = Synset(wn_synset.name())
                 # Filter out any synsets that are of filtered action words.
                 if synset.word in const.FILTERED_ACTIONS:
@@ -456,6 +523,47 @@ class SceneGraphReader:
             # end for
         # end for
     # end _make_actions_from_attributes
+
+    def get_action_synsets_and_concepts(self, knowledge_graph: KnowledgeGraph, 
+                                        action_term: str):
+        """
+        Given an action term (e.g. 'eat'), gets the synsets and concepts for
+        that action. 
+
+        Returns a list of Synsets and a list of Concepts.
+        """
+        synsets = list()
+        wn_synset = querier.find_synset(action_term, 
+            wn.VERB,
+            lemmatizer=self._commonsense_querier.lemmatizer
+        )
+        if not wn_synset is None:
+            synsets = [Synset(wn_synset.name())]
+        # Filter out any synsets that are of filtered action words.
+        synsets = [synset for synset in synsets 
+                    if not synset.word in const.FILTERED_ACTIONS]
+        # If there are no synsets, skip this action.
+        if len(synsets) == 0:
+            return [], []
+        # end if
+        # Remove any duplicate synsets.
+        synsets_dedupe = list()
+        for synset in synsets:
+            if not synset in synsets_dedupe:
+                synsets_dedupe.append(synset)
+        # end for
+        synsets = synsets_dedupe
+
+        # Get or make the Concepts for this node.
+        concepts = list()
+        for synset in synsets:
+            concept = knowledge_graph.get_or_make_concept(synset,
+                                                          ConceptType.ACTION)
+            concepts.append(concept)
+        # end for
+
+        return synsets, concepts
+    # end get_action_synsets_and_concepts
 
     def _populate_edges(self, knowledge_graph: KnowledgeGraph, image: Image):
         """
@@ -482,9 +590,9 @@ class SceneGraphReader:
                                                   relationship=str(EdgeRelationship.OBJECT_OF))
                 # If there is an object, additionally make a co-actor edge
                 # between the subject and the object.
-                knowledge_graph.make_and_add_edge(source=action.subject,
-                                                  target=action.object,
-                                                  relationship=str(EdgeRelationship.CO_ACTOR))
+                #knowledge_graph.make_and_add_edge(source=action.subject,
+                #                                  target=action.object,
+                #                                  relationship=str(EdgeRelationship.CO_ACTOR))
             # end if
         # end for
     # end populate_edges
@@ -510,7 +618,7 @@ class SceneGraphReader:
 
         # Pick the character with the most edges and set it as the focal node.
         focal_node_scores = dict()
-        highest_edge_count = 0
+        highest_edge_count = -1
         highest_edge_node_id = -1
         for node_id, edge_count in edge_counts.items():
             if edge_count > highest_edge_count:
@@ -573,38 +681,48 @@ def determine_overlap(object_1: Object, object_2: Object):
         return False
     # Calculate the IOU of their bounding boxes.
     # Intersection area.
+    # VGG has 0, 0 in the upper-left corner.
     # The x, y coordinates in a bounding box is their upper-left corner.
     # We can get the coordinates of the bottom-right corner from h, w.
     # So we have x1, y1 in the top-left and x2, y2 in the bottom-right.
     # The top-left corner of the intersection area is:
     #   The right-most (largest) x1
-    #   The bottom-most (smallest) y1
+    #   The bottom-most (largest) y1
     # The bottom-right corner of the intersection area is:
     #   The left-most (smallest) x2
-    #   The top-most (largest) y2
+    #   The top-most (smallest) y2
     bbox_1 = object_1.scene_graph_objects[0].bounding_box
     obj_1_x1 = bbox_1.x
     obj_1_y1 = bbox_1.y
     obj_1_x2 = bbox_1.x + bbox_1.w
     obj_1_y2 = bbox_1.y + bbox_1.h
+    obj_1_area = bbox_1.w * bbox_1.h
 
     bbox_2 = object_2.scene_graph_objects[0].bounding_box
     obj_2_x1 = bbox_2.x
     obj_2_y1 = bbox_2.y
     obj_2_x2 = bbox_2.x + bbox_2.w
     obj_2_y2 = bbox_2.y + bbox_2.h
+    obj_2_area = bbox_2.w * bbox_2.h
 
     int_x1 = max(obj_1_x1, obj_2_x1)
-    int_y1 = min(obj_1_y1, obj_2_y1)
+    int_y1 = max(obj_1_y1, obj_2_y1)
     int_x2 = min(obj_1_x2, obj_2_x2)
-    int_y2 = max(obj_1_y2, obj_2_y2)
+    int_y2 = min(obj_1_y2, obj_2_y2)
+
+    # x1, y1 of the intercept should always be its top-left corner,
+    # and x2, y2 of the intercept should always be its bottom-right corner.
+    # If this is not the case, the two bounding boxes don't overlap.
+    if ((int_x2 <= int_x1) or (int_y2 <= int_y1)):
+        return False
+    # end if
 
     int_area = (int_x2 - int_x1) * (int_y2 - int_y1)
 
     # Union area
     # The area of the union of the two bounding boxes is the sum of their
     # areas minus the area of their intersection.
-    union_area = bbox_1.w * bbox_1.h + bbox_2.w * bbox_2.h - int_area
+    union_area = obj_1_area + obj_2_area - int_area
 
     # Intersection Over Union
     iou = int_area / union_area
@@ -612,6 +730,15 @@ def determine_overlap(object_1: Object, object_2: Object):
     # If the IOU is over the threshold, these two Objects are considered 
     # overlapping.
     if iou > const.IOU_THRESHOLD:
+        return True
+    # If the IOU threshold is not met, it could still be the case that one of
+    # the objects' bounding boxes is much smaller than the other and encompasses
+    # most of the intercept.
+    # In this case, the smaller object is signifcantly encompassed by the larger 
+    # object.
+    # Return true in this case.
+    elif (int_area / obj_1_area > 0.5
+          or int_area / obj_2_area > 0.5):
         return True
     else:
         return False

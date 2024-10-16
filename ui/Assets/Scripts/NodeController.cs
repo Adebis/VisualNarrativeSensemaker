@@ -2,11 +2,13 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
+using System.Linq;
 
 public class NodeController : MonoBehaviour
 {
     // Prefabs
     public GameObject bbox_prefab;
+    public GameObject scene_text_prefab;
 
     // The GUI controller
     private GUIController gui_controller;
@@ -57,8 +59,17 @@ public class NodeController : MonoBehaviour
     {   
         this.gui_controller = gui_controller;
         this.hypothesis = hypothesis;
-        // Call start in case it hasn't been called before Initialization.
-        this.Start();
+
+        this.focused = false;
+        this.focus_locked = false;
+        this.original_scale = this.transform.localScale;
+        this.target_scale = this.transform.localScale;
+        this.outline = gameObject.transform.Find("outline").gameObject;
+        this.fill = gameObject.transform.Find("fill").gameObject;
+        this.text = Instantiate(scene_text_prefab,
+            new Vector3(this.transform.position.x, this.transform.position.y - 15, 0),
+            Quaternion.identity);
+
         this.bounding_box = null;
         this.scene_image_controllers = scene_image_controllers;
         this.node = node;
@@ -94,7 +105,7 @@ public class NodeController : MonoBehaviour
         {
             var object_node = (ObjectNode)this.node;
             // Make the bounding box a child of the image it's for.
-            var scene_image = this.scene_image_controllers[object_node.image_ids[0]];
+            var scene_image = this.scene_image_controllers[object_node.images.Keys.First<int>()];
             this.bounding_box = Instantiate(bbox_prefab, Vector3.zero, 
                 Quaternion.identity, scene_image.gameObject.transform);
             // Set its four points according to its bounding box info.
@@ -119,28 +130,29 @@ public class NodeController : MonoBehaviour
         }
     }
 
-    // Whether or not this node controller's node is made from a hypothesis.
-    public bool Hypothesized()
+    // Clean up all of this node's related game objects.
+    public void Deinitialize()
     {
-        return (this.hypothesis != null ? true : false);
+        // Outline
+        GameObject.Destroy(this.outline);
+        // Fill
+        GameObject.Destroy(this.fill);
+        // Text
+        GameObject.Destroy(this.text);
+        this.text = null;
+        // Bounding box.
+        GameObject.Destroy(this.bounding_box);
+        this.bounding_box = null;
     }
 
     // Start is called before the first frame update
     void Start()
     {
-        this.focused = false;
-        this.focus_locked = false;
-        this.original_scale = this.transform.localScale;
-        this.target_scale = this.transform.localScale;
-        this.outline = gameObject.transform.Find("outline").gameObject;
-        this.fill = gameObject.transform.Find("fill").gameObject;
-        this.text = gameObject.transform.Find("text").gameObject;
     }
 
     // Update is called once per frame
     void Update()
     {
-
     }
 
     void FixedUpdate()
@@ -155,7 +167,7 @@ public class NodeController : MonoBehaviour
         }
     }
 
-    void OnMouseEnter()
+    public void MouseEnter()
     {
         // Focus this node.
         this.Focus();
@@ -165,7 +177,7 @@ public class NodeController : MonoBehaviour
         this.ChangeFillColor(0.1f, 0.1f, 0.1f, 0);
     }
 
-    void OnMouseExit()
+    public void MouseExit()
     {
         // Unfocus this node.
         this.Unfocus();
@@ -190,6 +202,13 @@ public class NodeController : MonoBehaviour
     {
         // Grow the node back to mouseover size.
         this.target_scale = this.original_scale * this.mouseover_scale_factor;
+        this.ToggleFocusLock();
+        // Rebrighten the node a bit.
+        this.ChangeFillColor(0.2f, 0.2f, 0.2f, 0);
+    }
+
+    public void ToggleFocusLock()
+    {
         // Lock or unlock the node as focused.
         if (this.focus_locked)
         {
@@ -199,8 +218,6 @@ public class NodeController : MonoBehaviour
         {
             this.focus_locked = true;
         }
-        // Rebrighten the node a bit.
-        this.ChangeFillColor(0.2f, 0.2f, 0.2f, 0);
     }
 
     // Focus this node.
@@ -223,7 +240,7 @@ public class NodeController : MonoBehaviour
             this.bounding_box.SetActive(true);
         }
         // Show the node's info in the info box. 
-        this.gui_controller.SetInfoText(this.node.name);
+        //this.gui_controller.SetInfoText(this.node.name);
 
         // Flag that the node is focused.
         this.focused = true;
@@ -273,9 +290,15 @@ public class NodeController : MonoBehaviour
 
     private void SetText(string text)
     {
-        this.text.GetComponent<TMP_Text>().text = text;
+        this.text.GetComponent<TextMeshPro>().text = text;
     }
 
+    // Properties
+    // Whether or not this node controller's node is made from a hypothesis.
+    public bool Hypothesized
+    {
+        get { return (this.hypothesis != null ? true : false); }
+    }
     // The node's game object's size.
     public Vector3 Size
     {

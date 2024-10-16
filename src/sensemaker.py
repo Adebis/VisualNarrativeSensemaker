@@ -22,10 +22,11 @@ from input_handling.scene_graph_reader import SceneGraphReader
 from output_handling.sensemaking_data_encoder import SensemakingDataEncoder
 
 from hypothesis.hypothesis_generation import HypothesisGenerator
-from hypothesis.hypothesis_evaluator import HypothesisEvaluator, Solution
-from hypothesis.hypothesis import (Hypothesis, ConceptEdgeHyp, 
+from hypothesis.hypothesis_evaluator import (HypothesisEvaluator, Solution, 
+                                             SolutionSet)
+from hypothesis.hypothesis import (Hypothesis,
                                    SameObjectHyp, 
-                                   NewObjectHyp)
+                                   CausalSequenceHyp)
 
 class SenseMaker:
     """
@@ -45,7 +46,8 @@ class SenseMaker:
     # end __init__
 
     def perform_sensemaking(self, parameter_sets: list[ParameterSet], 
-                            image_ids: list[int]):
+                            image_ids: list[int],
+                            write_json=True) -> tuple[KnowledgeGraph, dict[int, Hypothesis], dict[int, SolutionSet]]:
         """
         Performs the overall sensemaking procedure.
 
@@ -64,7 +66,7 @@ class SenseMaker:
 
         Returns
         -------
-        None
+        KnowledgeGraph, hypotheses (dict), solution_sets (dict)
         """
         timers = dict()
         timers['start'] = timer()
@@ -73,18 +75,18 @@ class SenseMaker:
         # Read in the scene graph files for the set and make a knowledge graph 
         # out of them.
         timers['sg_start'] = timer()
-        print(f'Reading scene graphs...')
         scene_graph_reader = SceneGraphReader(self._commonsense_querier)
+        print(f'Reading scene graphs...')
         knowledge_graph = scene_graph_reader.read_scene_graphs(image_ids)
         print(f'Done reading scene graphs.' +
-              f' Time taken: {timer() - timers["sg_start"]}')
+              f' Time taken: {timer() - timers["sg_start"]}s.')
         
         timers['h_gen_start'] = timer()
         print(f'Generating hypotheses...')
         hypothesis_generator = HypothesisGenerator(self._commonsense_querier)
         hypotheses = hypothesis_generator.generate_hypotheses(knowledge_graph)
         print(f'Done generating hypotheses.' + 
-              f' Time taken: {timer() - timers["h_gen_start"]}')
+              f' Time taken: {timer() - timers["h_gen_start"]}s.')
 
         timers['h_eval_start'] = timer()
         print(f'Evaluating hypotheses...')
@@ -93,19 +95,24 @@ class SenseMaker:
             hypotheses=hypotheses,
             parameter_sets={p_set.id: p_set for p_set in parameter_sets})
         print(f'Done evaluating hypotheses.' + 
-              f' Time taken: {timer() - timers["h_eval_start"]}')
+              f' Time taken: {timer() - timers["h_eval_start"]}s.')
         
-        print(f'Writing output to json...')
-        self._write_output_json(knowledge_graph=knowledge_graph,
-                                hypotheses=hypotheses,
-                                parameter_sets={p_set.id: p_set 
-                                                for p_set in parameter_sets},
-                                solutions=all_solutions)
+        if write_json:
+            print(f'Writing output to json...')
+            self._write_output_json(knowledge_graph=knowledge_graph,
+                                    hypotheses=hypotheses,
+                                    parameter_sets={p_set.id: p_set 
+                                                    for p_set in parameter_sets},
+                                    solution_sets=all_solutions)
+        # end if
+
+        # Have the querier save its caches.
+        self._commonsense_querier.save()
 
         print(f'Done performing sensemaking :) ' + 
-              f'elapsed time: {timer() - timers["start"]}')
+              f'Elapsed time: {timer() - timers["start"]}s.')
 
-        return knowledge_graph, hypotheses
+        return knowledge_graph, hypotheses, all_solutions
     # end perform_sensemaking
 
     def _evaluate_hypotheses(self, knowledge_graph: KnowledgeGraph,
@@ -125,21 +132,22 @@ class SenseMaker:
         #   'parameter_set'
         #   'hypothesis_sets'
         #   'energies'
-        all_solutions = dict()
-        for parameter_id, parameters in parameter_sets.items():
-            hypothesis_evaluator = HypothesisEvaluator(parameters=parameters)
-            solutions = hypothesis_evaluator.evaluate_hypotheses(
+        all_solution_sets = dict()
+        hypothesis_evaluator = HypothesisEvaluator()
+        for parameter_id, parameter_set in parameter_sets.items():
+            solution_set = hypothesis_evaluator.evaluate_hypotheses(
                 knowledge_graph=knowledge_graph,
-                hypotheses=hypotheses)
-            all_solutions[parameter_id] = solutions
+                hypotheses=hypotheses,
+                parameter_set=parameter_set)
+            all_solution_sets[parameter_id] = solution_set
         # end for
-        return all_solutions
+        return all_solution_sets
     # end _evaluate_hypotheses
 
     def _write_output_json(self, knowledge_graph: KnowledgeGraph, 
                            hypotheses: dict[int, Hypothesis],
                            parameter_sets: dict[int, ParameterSet],
-                           solutions: dict[int, list[Solution]]):
+                           solution_sets: dict[int, SolutionSet]):
         """
         Write the solution sets for a series of sensemaking runs to an output
         json file.
@@ -154,20 +162,21 @@ class SenseMaker:
         parameter_sets : dict[int, ParameterSet]
             A dictionary of the parameter sets used to evaluate hypotheses,
             keyed by parameter set id.
-        solutions : dict[int, list[Solution]]
-            A dictionary of all of the solutions from hypothesis evaluation,
+        solution_sets : dict[int, SolutionSet]
+            A dictionary of all of the solution sets from hypothesis evaluation,
             keyed by the id of the parameter set used to create them.
         """
-        # Add hypothetical objects to the knowledge graph before encoding.
-        objects_hs = [h for h in hypotheses.values() 
-                       if type(h) == NewObjectHyp]
-        for h in objects_hs:
-            knowledge_graph.add_node(h.obj)
-        # end for
+        # Separate hypotheses by type.
+        hypotheses_output_dict = dict()
+        hypotheses_output_dict['same_object_hyps'] = [h for h in hypotheses.values()
+                                                      if isinstance(h, SameObjectHyp)]
+        hypotheses_output_dict['causal_sequence_hyps'] = [h for h in hypotheses.values()
+                                                          if isinstance(h, CausalSequenceHyp)]
+
         output_dict = {'sensemaker_data': {'knowledge_graph': knowledge_graph,
-                       'hypotheses': list(hypotheses.values()),
+                       'hypotheses': hypotheses_output_dict,
                        'parameter_sets': list(parameter_sets.values()),
-                       'solutions': list(solutions.values())}}
+                       'solution_sets': list(solution_sets.values())}}
         json_data = json.dumps(output_dict, cls=SensemakingDataEncoder)
         json_obj = json.loads(json_data)
         # Make the output file name by concatenating the images' ids and

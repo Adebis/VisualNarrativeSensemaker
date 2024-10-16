@@ -1,0 +1,91 @@
+Sequence 13 pset 3 segment 0. Image ids 2378543 10 2359308.  Number of action sequences: 27.
+Sequence 13 pset 4 segment 0. Image ids 2378543 10 2359308.  Number of action sequences: 27.
+Sequence 13 pset 5 segment 0. Image ids 2378543 10 2359308.  Number of action sequences: 27.
+Sequence 13 pset 8 segment 0. Image ids 2378543 10 2359308.  Number of action sequences: 27.
+Sequence 21 pset 3 segment 0. Image ids 2389037 18 2359314.  Number of action sequences: 42.
+Sequence 21 pset 4 segment 0. Image ids 2389037 18 2359314.  Number of action sequences: 42.
+Sequence 21 pset 5 segment 0. Image ids 2389037 18 2359314.  Number of action sequences: 42.
+Sequence 21 pset 6 segment 0. Image ids 2389037 18 2359314.  Number of action sequences: 42.
+Sequence 21 pset 7 segment 0. Image ids 2389037 18 2359314.  Number of action sequences: 42.
+Sequence 21 pset 8 segment 0. Image ids 2389037 18 2359314.  Number of action sequences: 42.
+Sequence 36 pset 3 segment 1. Image ids 2360566 2383872 2408449.  Number of action sequences: 30.
+Sequence 36 pset 4 segment 1. Image ids 2360566 2383872 2408449.  Number of action sequences: 30.
+Sequence 59 pset 5 segment 1. Image ids 2417232 47 2326576.  Number of action sequences: 32.
+Sequence 59 pset 7 segment 1. Image ids 2417232 47 2326576.  Number of action sequences: 32.
+Sequence 78 pset 6 segment 1. Image ids 2349184 2359357 2326590.  Number of action sequences: 42.
+Sequence 78 pset 8 segment 1. Image ids 2349184 2359357 2326590.  Number of action sequences: 42.
+Sequence 87 pset 3 segment 1. Image ids 2382480 2408448 2414592.  Number of action sequences: 28.
+Sequence 87 pset 4 segment 1. Image ids 2382480 2408448 2414592.  Number of action sequences: 28.
+Sequence 87 pset 5 segment 1. Image ids 2382480 2408448 2414592.  Number of action sequences: 28.
+Sequence 87 pset 6 segment 1. Image ids 2382480 2408448 2414592.  Number of action sequences: 28.
+Sequence 87 pset 7 segment 1. Image ids 2382480 2408448 2414592.  Number of action sequences: 28.
+Sequence 87 pset 8 segment 1. Image ids 2382480 2408448 2414592.  Number of action sequences: 28.
+Sequence 105 pset 3 segment 1. Image ids 2367974 2402688 2376966.  Number of action sequences: 27.
+Sequence 105 pset 4 segment 1. Image ids 2367974 2402688 2376966.  Number of action sequences: 27.
+Sequence 105 pset 5 segment 1. Image ids 2367974 2402688 2376966.  Number of action sequences: 27.
+Sequence 105 pset 6 segment 1. Image ids 2367974 2402688 2376966.  Number of action sequences: 24.
+Sequence 105 pset 7 segment 1. Image ids 2367974 2402688 2376966.  Number of action sequences: 27.
+Sequence 105 pset 8 segment 1. Image ids 2367974 2402688 2376966.  Number of action sequences: 24.
+Sequence 154 pset 3 segment 2. Image ids 2372966 2399744 2394628.  Number of action sequences: 28. For second segment: 25
+Sequence 154 pset 4 segment 2. Image ids 2372966 2399744 2394628.  Number of action sequences: 28. For second segment: 25
+Sequence 154 pset 5 segment 2. Image ids 2372966 2399744 2394628.  Number of action sequences: 28. For second segment: 25
+Sequence 154 pset 6 segment 2. Image ids 2372966 2399744 2394628.  Number of action sequences: 28. For second segment: 25
+Sequence 154 pset 7 segment 2. Image ids 2372966 2399744 2394628.  Number of action sequences: 28. For second segment: 25
+Sequence 154 pset 8 segment 2. Image ids 2372966 2399744 2394628.  Number of action sequences: 28. For second segment: 25
+Sequence 181 pset 3 segment 1. Image ids 2366971 2400286 2375712.  Number of action sequences: 24.
+Sequence 181 pset 4 segment 1. Image ids 2366971 2400286 2375712.  Number of action sequences: 24.
+Sequence 206 pset 6 segment 1. Image ids 2366556 2412561 2363416.  Number of action sequences: 24.
+Sequence 206 pset 8 segment 1. Image ids 2366556 2412561 2363416.  Number of action sequences: 24.
+Sequence 279 pset 3 segment 2. Image ids 2329895 2392228 2392230.  Number of action sequences: 21. For second segment: 35
+Sequence 279 pset 4 segment 2. Image ids 2329895 2392228 2392230.  Number of action sequences: 21. For second segment: 35
+Sequence 279 pset 5 segment 1. Image ids 2329895 2392228 2392230.  Number of action sequences: 35.
+Sequence 279 pset 6 segment 0. Image ids 2329895 2392228 2392230.  Number of action sequences: 21.
+Sequence 279 pset 7 segment 2. Image ids 2329895 2392228 2392230.  Number of action sequences: 21. For second segment: 35
+Sequence 282 pset 1 segment 1. Image ids 2316649 2373635 2406405.  Number of action sequences: 192.
+Sequence 282 pset 3 segment 1. Image ids 2316649 2373635 2406405.  Number of action sequences: 200.
+Sequence 282 pset 4 segment 1. Image ids 2316649 2373635 2406405.  Number of action sequences: 200.
+Sequence 282 pset 5 segment 1. Image ids 2316649 2373635 2406405.  Number of action sequences: 200.
+Sequence 282 pset 6 segment 1. Image ids 2316649 2373635 2406405.  Number of action sequences: 200.
+Sequence 282 pset 7 segment 1. Image ids 2316649 2373635 2406405.  Number of action sequences: 200.
+Sequence 282 pset 8 segment 1. Image ids 2316649 2373635 2406405.  Number of action sequences: 200.
+Sequence 298 pset 3 segment 1. Image ids 2374534 2342937 2375708.  Number of action sequences: 25.
+Sequence 298 pset 4 segment 1. Image ids 2374534 2342937 2375708.  Number of action sequences: 25.
+Sequence 298 pset 6 segment 1. Image ids 2374534 2342937 2375708.  Number of action sequences: 25.
+Sequence 298 pset 8 segment 1. Image ids 2374534 2342937 2375708.  Number of action sequences: 25.
+Sequence 324 pset 6 segment 1. Image ids 2376159 2404355 2406408.  Number of action sequences: 25.
+Sequence 324 pset 8 segment 1. Image ids 2376159 2404355 2406408.  Number of action sequences: 25.
+Sequence 340 pset 3 segment 0. Image ids 2393676 2351120 2416664.  Number of action sequences: 42.
+Sequence 340 pset 4 segment 0. Image ids 2393676 2351120 2416664.  Number of action sequences: 42.
+Sequence 340 pset 5 segment 0. Image ids 2393676 2351120 2416664.  Number of action sequences: 42.
+Sequence 340 pset 6 segment 0. Image ids 2393676 2351120 2416664.  Number of action sequences: 42.
+Sequence 340 pset 7 segment 0. Image ids 2393676 2351120 2416664.  Number of action sequences: 42.
+Sequence 340 pset 8 segment 0. Image ids 2393676 2351120 2416664.  Number of action sequences: 42.
+Sequence 403 pset 6 segment 0. Image ids 2344631 2409601 713736.  Number of action sequences: 72.
+Sequence 403 pset 7 segment 0. Image ids 2344631 2409601 713736.  Number of action sequences: 72.
+Sequence 428 pset 1 segment 0. Image ids 2344122 2400279 2332697.  Number of action sequences: 55.
+Sequence 428 pset 3 segment 0. Image ids 2344122 2400279 2332697.  Number of action sequences: 56.
+Sequence 428 pset 4 segment 0. Image ids 2344122 2400279 2332697.  Number of action sequences: 55.
+Sequence 428 pset 6 segment 0. Image ids 2344122 2400279 2332697.  Number of action sequences: 56.
+Sequence 428 pset 7 segment 0. Image ids 2344122 2400279 2332697.  Number of action sequences: 55.
+Sequence 430 pset 5 segment 0. Image ids 2388856 2403359 2355746.  Number of action sequences: 24.
+Sequence 430 pset 8 segment 0. Image ids 2388856 2403359 2355746.  Number of action sequences: 24.
+Sequence 457 pset 3 segment 1. Image ids 2384741 2400303 2408498.  Number of action sequences: 30.
+Sequence 457 pset 4 segment 1. Image ids 2384741 2400303 2408498.  Number of action sequences: 30.
+Sequence 457 pset 6 segment 1. Image ids 2384741 2400303 2408498.  Number of action sequences: 30.
+Sequence 457 pset 8 segment 1. Image ids 2384741 2400303 2408498.  Number of action sequences: 30.
+Sequence 460 pset 3 segment 0. Image ids 2377632 2375871 2359493.  Number of action sequences: 23.
+Sequence 460 pset 4 segment 0. Image ids 2377632 2375871 2359493.  Number of action sequences: 23.
+Sequence 460 pset 5 segment 0. Image ids 2377632 2375871 2359493.  Number of action sequences: 23.
+Sequence 460 pset 6 segment 0. Image ids 2377632 2375871 2359493.  Number of action sequences: 23.
+Sequence 460 pset 7 segment 0. Image ids 2377632 2375871 2359493.  Number of action sequences: 23.
+Sequence 460 pset 8 segment 0. Image ids 2377632 2375871 2359493.  Number of action sequences: 22.
+Sequence 478 pset 3 segment 2. Image ids 2408530 2359536 2359546.  Number of action sequences: 24. For second segment: 35
+Sequence 478 pset 4 segment 2. Image ids 2408530 2359536 2359546.  Number of action sequences: 24. For second segment: 35
+Sequence 478 pset 5 segment 2. Image ids 2408530 2359536 2359546.  Number of action sequences: 24. For second segment: 35
+Sequence 478 pset 6 segment 1. Image ids 2408530 2359536 2359546.  Number of action sequences: 35.
+Sequence 478 pset 7 segment 1. Image ids 2408530 2359536 2359546.  Number of action sequences: 35.
+Sequence 478 pset 8 segment 2. Image ids 2408530 2359536 2359546.  Number of action sequences: 24. For second segment: 35
+Sequence 493 pset 3 segment 0. Image ids 2358003 2392327 2326794.  Number of action sequences: 35.
+Sequence 493 pset 4 segment 0. Image ids 2358003 2392327 2326794.  Number of action sequences: 35.
+Sequence 493 pset 6 segment 0. Image ids 2358003 2392327 2326794.  Number of action sequences: 35.
+Sequence 493 pset 7 segment 0. Image ids 2358003 2392327 2326794.  Number of action sequences: 35.

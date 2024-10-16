@@ -13,6 +13,8 @@ from input_handling.scene_graph_data import (Image, BoundingBox, Synset, SceneGr
 from commonsense.commonsense_data import (CommonSenseNode, CommonSenseEdge,
                                           ConceptNetNode)
 
+from nltk.sentiment import SentimentIntensityAnalyzer
+
 from constants import ConceptType
 import constants as const
 
@@ -78,6 +80,8 @@ class KnowledgeGraph:
         # Concepts with.
         self._commonsense_querier = commonsense_querier
         self._concept_membership_map = dict()
+        # An NLTK sentiment analyzer.
+        self._sentiment_analyzer = SentimentIntensityAnalyzer()
     # end __init__
 
     def __contains__(self, item):
@@ -201,7 +205,8 @@ class KnowledgeGraph:
 
     def get_or_make_concept(self, 
                             search_item: Union[str, Synset, CommonSenseNode], 
-                            concept_type: ConceptType) -> Concept:
+                            concept_type: ConceptType,
+                            synset: Synset=None) -> Concept:
         """
         Gets the Concept node for the label, synset, or commonsense node passed 
         in if it exists. If it does not exist, makes a new Concept node and adds 
@@ -213,6 +218,8 @@ class KnowledgeGraph:
             The label, Synset, or CommonSenseNode to find or make a Concept for.
         concept_type : ConceptType
             The type of Concept to look for or make.
+        synset: Synset
+            An existing synset for this search item. Optional.
 
         Returns
         -------
@@ -231,7 +238,8 @@ class KnowledgeGraph:
             elif issubclass(type(search_item), CommonSenseNode):
                 concept = self.make_concept(label=search_item.labels[0],
                                             concept_type=concept_type,
-                                            commonsense_node=search_item)
+                                            commonsense_node=search_item,
+                                            synset=synset)
             # end elif
             # Add the newly made Concept to this knowledge graph.
             if not concept is None:
@@ -272,10 +280,27 @@ class KnowledgeGraph:
             pos = 'v'
         # Find a synset based on the label if one wasn't provided.
         if synset is None:
-            synset = querier.find_synset(label, pos)
+            wn_synset = querier.find_synset(
+                label, pos, self._commonsense_querier.lemmatizer
+            )
+            if not wn_synset is None:
+                synset = Synset(wn_synset.name())
         # end if
+        # For actions, calculate the sentiment of the concept's label.
+        polarity_scores = self._sentiment_analyzer.polarity_scores(label)
+        # SPECIAL CASE:
+        # For Hit, the sentiment is neutral. But being hit is pretty negative,
+        # and occurs in a lot of images.
+        # Set the polarity for Hit accordingly.
+        if label == 'hit' or label == 'hits':
+            polarity_scores = {"neg": 1.0,
+                               "neu": 0.0,
+                               "pos": 0.0,
+                               "compound": 0.0}
+        # end if
+
         # Make the Concept.
-        concept = Concept(label, concept_type, synset)
+        concept = Concept(label, concept_type, synset, polarity_scores=polarity_scores)
         # Get ConceptNet nodes and edges. 
         search_word = label
         # If a CommonSenseNode was provided, uses its first label.
@@ -424,6 +449,13 @@ class KnowledgeGraph:
         return instances
     # end get_all_instances
 
+    def get_instance_count(self) -> int:
+        '''
+        Returns the number of instances in this knowledge graph.
+        '''
+        return (len(self.objects) + len(self.actions))
+    # end get_instances_count
+
     def get_scene_objects(self, image: Image):
         """
         Gets a list of all the Objects present in a single scene, represented
@@ -528,8 +560,10 @@ class KnowledgeGraph:
                      target=target,
                      relationship=relationship,
                      weight=weight))
+
         if not commonsense_edge is None:
             edge.commonsense_edge = commonsense_edge
+
         # Add the edge to its source and target nodes.
         edge.source.add_edge(edge)
         edge.target.add_edge(edge)
@@ -546,6 +580,8 @@ class KnowledgeGraph:
         Updates every other Instance with the focal node and their distance
         to the focal node.
         """
+        if (not node_id in self.nodes):
+            return
         focal_node = self.nodes[node_id]
         focal_node.focal_score = focal_score
 
@@ -626,4 +662,13 @@ class KnowledgeGraph:
         # end for
         return cs_edges
     # end get_commonsense_edges
+
+    def get_commonsense_node(self, commonsense_node_id: int):
+        """
+        Gets a commonsense node given its id.
+        """
+        # Get the node from the querier.
+        return self._commonsense_querier.get_node(commonsense_node_id)
+    # end get_commonsense_node
+        
 # end class KnowledgeGraph

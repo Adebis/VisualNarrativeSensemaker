@@ -146,6 +146,8 @@ class SceneGraphRelationship:
         The object is the thing the predicate is being done to.
         
         Corresponds to a scene graph object's object_id.
+
+        If this relationship has no object, object_id is -1.
     subject_id : int
         object_id of the subject of this relationship.
 

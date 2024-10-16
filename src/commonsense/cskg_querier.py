@@ -7,6 +7,8 @@ import json
 import csv
 import re
 import hashlib
+import random
+import itertools
 from dataclasses import dataclass, field
 from timeit import default_timer as timer
 
@@ -25,14 +27,40 @@ class CSKGQuerier(CommonSenseQuerier):
     A class to handle querying and managing the CSKG tables of the
     commonsense_knowledge database.
     """
-    def __init__(self, db_file_path: str = None):
+
+    _node_cache: dict[int, CommonSenseNode]
+    _node_edge_cache: dict[int, list[CommonSenseEdge]]
+    _edge_cache: dict[int, CommonSenseEdge]
+
+    use_caches: bool
+
+    def __init__(self, db_file_path: str = None, use_caches = True):
         super().__init__(db_file_path)
         # Cache a mapping of node ids to CommonSenseNode objects.
-        self._node_cache = dict()
+        # Try to load it from file. If it doesn't exist yet, this will
+        # result in an empty dict.
+        self._node_cache = self._try_load_dict_cache('node_cache')
         # Cache a mapping of node ids to lists of CommonSenseEdge objects.
-        self._node_edge_cache = dict()
+        # Try to load it from file. If the file doesn't exist yet, this will
+        # result in an empty dict.
+        self._node_edge_cache = self._try_load_dict_cache('node_edge_cache')
+        # Cache a mapping of edge ids to CommonSenseEdge objects.
+        # Try to load it from file. If it doesn't exist yet, this will result
+        # in an empty dict.
+        self._edge_cache = self._try_load_dict_cache('edge_cache')
+        self.use_caches = True
+        self.cache_size_limit = 500000
         self._initialize_database()
     # end __init__
+
+    def save(self):
+        """
+        Writes the querier's caches to file.
+        """
+        self._write_dict_cache('node_cache', self._node_cache)
+        self._write_dict_cache('node_edge_cache', self._node_edge_cache)
+        self._write_dict_cache('edge_cache', self._edge_cache)
+    # end on_exit
 
     def _initialize_database(self):
         """
@@ -410,15 +438,15 @@ class CSKGQuerier(CommonSenseQuerier):
         print(f'Done updating cskg_edges weights. Elapsed time: {elapsed_time}')
     # end _populate_weights
 
-    def get_node(self, node_id: int):
+    def get_node(self, node_id: int, force_fetch: bool=False):
         """
-        Get a node from the cskg_nodes table using its id.
+        Get a CommonSenseNode using its id.
 
-        If the node is not in the cache and had to be fetched, also gets all
-        the edges incident on the node and gives them to the node. 
+        If this is the first time getting this CommonSenseNode, fetches from the 
+        cskg_nodes table and locally caches the node for subsequent fetches.
         """
-        # First, check the cache.
-        if node_id in self._node_cache:
+        # First, check the cache if we're not forcing a fetch of this node.
+        if not force_fetch and node_id in self._node_cache:
             return self._node_cache[node_id]
         # If it's not there, fetch it from the cskg_nodes table.
         query_string = ('''
@@ -430,8 +458,18 @@ class CSKGQuerier(CommonSenseQuerier):
         node = self._make_nodes_from_query(query_result)[0]
         #DEBUG
         if node is None:
-            print('none node!')
+            print('CSKGQuerier.get_node: Error, none node!')
         # Cache the node.
+        #if self.use_caches:
+        # Obey the cache size limits.
+        if len(self._node_cache) > self.cache_size_limit:
+            amount_to_remove = int(self.cache_size_limit / 10)
+            self._node_cache = dict(
+                itertools.islice(
+                    self._node_cache.items(), 
+                    self.cache_size_limit - amount_to_remove
+                    )
+                )
         self._node_cache[node_id] = node
         return node
     # end get_node
@@ -443,6 +481,30 @@ class CSKGQuerier(CommonSenseQuerier):
         # one by one.
         return [self.get_node(node_id) for node_id in node_ids]
     # end get_nodes
+    
+    def get_node_by_uri(self, node_uri: str):
+        '''
+        Gets a CommonSenseNode using its URI.
+
+        Slower than getting it using its id.
+        '''
+        return self.get_node(self.get_node_id(node_uri))
+    # end get_node_by_uri
+
+    def get_node_id(self, node_uri: str):
+        '''
+        Gets the id for a node using its uri.
+
+        Fetches it from the database. 
+        '''
+        query_string = ('''
+                        SELECT * FROM cskg_nodes
+                        WHERE uri = ?
+                        ''')
+        query_data = [node_uri]
+        query_result = self.execute_query(query_string, query_data)
+        return query_result[0][0]
+    # end get_node_id
         
     def find_nodes(self, search_term: str):
         """
@@ -456,10 +518,6 @@ class CSKGQuerier(CommonSenseQuerier):
         search_term = search_term.lower()
         search_term = search_term.replace('_', ' ')
 
-        # DEBUG
-        if search_term == 'man':
-            print('searching for man')
-
         timers['query_start'] = timer()
         #print(f'Querying concept_net_nodes for {search_term}...')
         # Search for any node whose label matches the search term
@@ -470,6 +528,12 @@ class CSKGQuerier(CommonSenseQuerier):
                         WHERE label = ?
                         ''')
         query_results = self.execute_query(query_string, query_data)
+        # If there were no results, try removing hyphens and searching again.
+        if len(query_results) == 0:
+            search_term = search_term.replace('-', ' ')
+            query_data = [search_term]
+            query_results = self.execute_query(query_string, query_data)
+        # end if
         # This gets us a list of node ids.
         node_ids = [result_tuple[1] for result_tuple in query_results]
         # Get these nodes.
@@ -478,7 +542,7 @@ class CSKGQuerier(CommonSenseQuerier):
         return nodes
     # end find_nodes
 
-    def _make_nodes_from_query(self, query_results: list[tuple]):
+    def _make_nodes_from_query(self, query_results: list[tuple]) -> list[CommonSenseNode]:
         """
         Helper function to make a list of CommonSenseNodes from a list of
         cskg_nodes table query result tuples.
@@ -540,14 +604,17 @@ class CSKGQuerier(CommonSenseQuerier):
 
     # DEBUG:
     timer_sums = {'get_edges': 0}
-    def get_edges(self, node_id: int):
+    def get_edges(self, node_id: int,
+                  force_fetch: bool=False) -> list[CommonSenseEdge]:
         """
         Gets all the cskg edges where the node with the id passed in is
         either the start or the end node.
+
+        Caches the edges in _edge_cache and _node_edge_cache.
         """
         #print(f'Querying edges for node {node_id}...')
         # First, check the cache.
-        if node_id in self._node_edge_cache:
+        if not force_fetch and node_id in self._node_edge_cache:
             return self._node_edge_cache[node_id]
         timers = dict()
         timers['start'] = timer()
@@ -557,8 +624,35 @@ class CSKGQuerier(CommonSenseQuerier):
                         ''')
         query_data = [node_id, node_id]
         query_results = self.execute_query(query_string, query_data)
+        # If the node had no edges, return an empty list.
+        if query_results is None:
+            print(f'cskg_querier.get_edges: No edges found for node {node_id}')
+            return list()
         edges = self._make_edges_from_query(query_results)
+        # Cache the edges.
+        # Obey cache size limits.
+        for edge in edges:
+            if not edge.id in self._edge_cache:
+                if len(self._edge_cache) > self.cache_size_limit:
+                    amount_to_remove = int(self.cache_size_limit / 10)
+                    self._edge_cache = dict(
+                        itertools.islice(
+                            self._edge_cache.items(), 
+                            self.cache_size_limit - amount_to_remove
+                            )
+                        )
+                self._edge_cache[edge.id] = edge
+            # end if
+        # end for
         # Cache the edges for this node.
+        if len(self._node_edge_cache) > self.cache_size_limit:
+            amount_to_remove = int(self.cache_size_limit / 10)
+            self._node_edge_cache = dict(
+                itertools.islice(
+                    self._node_edge_cache.items(), 
+                    self.cache_size_limit - amount_to_remove
+                    )
+                )
         self._node_edge_cache[node_id] = edges
 
         #print(f'Done! Edges Out: {len(start_edges)}' + 
@@ -569,29 +663,44 @@ class CSKGQuerier(CommonSenseQuerier):
         return edges
     # end get_edges
 
-    def get_node_edges(self, node: CommonSenseNode):
-        """
-        Gets a list of all the CommonSenseEdges for the CommonSenseNode passed 
-        in.
-        """
-        query_string = ('''
-                        SELECT * FROM cskg_edges
-                        WHERE id = ?
-                        ''')
-        edges = list()
-        for edge_id in node.edge_ids:
-            query_results = self.execute_query(query_string, [edge_id])
-            edges_made = self._make_edges_from_query(query_results)
-            # It's possible all the edges were filtered out of the results,
-            # so check for that here.
-            if len(edges_made) == 0:
-                continue
-            edges.append(edges_made[0])
-        # end for
-        return edges
-    # end get_node_edges
+    def get_edge(self, edge_id) -> CommonSenseEdge | None:
+        '''
+        Gets a CommonSenseEdge by its id.
 
-    def _make_edges_from_query(self, query_results: list[tuple]):
+        If it's not in the cache, fetches from the database and caches it.
+        '''
+        if edge_id in self._edge_cache:
+            return self._edge_cache[edge_id]
+        # end if
+
+        query_string = ('''
+            SELECT * FROM cskg_edges
+            WHERE id = ?
+        ''')
+        query_data = [edge_id]
+        query_results = self.execute_query(query_string, query_data)
+        edges = self._make_edges_from_query(query_results)
+        # There should only be one edge. Cache it, then return it.
+        edge = edges[0]
+
+        # Obey cache size limits.
+        if len(self._edge_cache) > self.cache_size_limit:
+            amount_to_remove = int(self.cache_size_limit / 10)
+            self._edge_cache = dict(
+                    itertools.islice(
+                        self._edge_cache.items(), 
+                        self.cache_size_limit - amount_to_remove
+                        )
+                    )
+            # end for
+        # end if
+            
+        self._edge_cache[edge_id] = edge
+        
+        return edge
+    # end get_edge
+
+    def _make_edges_from_query(self, query_results: list[tuple]) -> list[CommonSenseEdge]:
         """
         Helper function to get a list of CommonSenseEdges from a query result
         from the cskg_edges table.
@@ -623,5 +732,182 @@ class CSKGQuerier(CommonSenseQuerier):
         # end for
         return edges
     # end _make_edges_from_query
+
+    # A map of relations to labels.
+    _relation_label_map = {'/r/HasFirstSubevent': 'has first subevent',
+                           '/r/Causes': 'causes',
+                           '/r/HasLastSubevent': 'has last subevent',
+                           '/r/HasPrerequisite': 'has prerequisite',
+                           '/r/CausesDesire': 'causes desire'}
+    # A map of relations to dimensions.
+    _relation_dimension_map = {'/r/HasFirstSubevent': 'temporal',
+                               '/r/Causes': 'temporal',
+                               '/r/HasLastSubevent': 'temporal',
+                               '/r/HasPrerequisite': 'temporal',
+                               '/r/CausesDesire': 'desire'}
+    def write_edge(self, start_node_id: int, end_node_id: int, relation: str):
+        '''
+        Write an edge into the cskg_edges table between two commonsense nodes,
+        identified by their ids.
+
+        Relation should be in uri form, i.e. /r/{relation}
+        '''
+        # First, make the cskg_edges row.
+        # Parts of a cskg_edges row:
+        # 0 - id
+        #   Should start at 6000000 and count up.
+        # 1 - uri
+        #   '{start_node_uri}-{relation}-{end_node_uri}-0000
+        # 2 - relation
+        # 3 - start_node_id
+        # 4 - end_node_id
+        # 5 - start_node_uri
+        # 6 - end_node_uri
+        # 7 - labels
+        #   Grab the label for the relation from the _relation_label_map.
+        # 8 - dimension
+        #   Grab the dimension from the _relation_dimension_map.
+        # 9 - source
+        #   'CN'
+        # 10 - sentence
+        #   ''
+        # 11 - weight
+        #   1.0f
+        
+        # Count the number of edges with an id greater than or equal to
+        # 6,000,000. Add that to 6,000,000, and that's what the id of this edge
+        # should be. 
+        query = ('''
+            SELECT COUNT(*)
+            FROM cskg_edges
+            WHERE id >= 6000000
+        ''')
+        result = self.execute_query(query)
+        count = result[0][0]
+        id = 6000000 + count
+        #id = 6000000
+
+        # Get the start and end nodes so we can get their uris. 
+        start_node = self.get_node(start_node_id)
+        end_node = self.get_node(end_node_id)
+
+        start_node_uri = start_node.uri
+        end_node_uri = end_node.uri
+        
+        # Make the edge's uri.
+        uri = f'{start_node_uri}-{relation}-{end_node_uri}'
+
+        labels = self._relation_label_map[relation]
+        dimension = self._relation_dimension_map[relation]
+        source = 'CN'
+        sentence = ''
+        weight = 1.0
+
+        row_data = [
+            id,
+            uri,
+            relation,
+            start_node_id,
+            end_node_id,
+            start_node_uri,
+            end_node_uri,
+            labels,
+            dimension,
+            source,
+            sentence,
+            weight
+        ]
+
+        # Write the row into the database.
+        query = ('''
+            INSERT INTO cskg_edges
+            (id, uri, relation, start_node_id, end_node_id, start_node_uri,
+             end_node_uri, labels, dimension, source, sentence, weight)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''')
+        result = self.execute_query(query, row_data)
+
+        # Next, add the new edge's id to the end of the edge_ids list for
+        # the start and end nodes in the cskg_nodes table.
+        # If the edge id is already there, don't update it.
+        if not id in start_node.edge_ids:
+            # First, fetch the node's original row.
+            query = ('''
+                SELECT * FROM cskg_nodes
+                WHERE id=?
+            ''')
+            start_node_row = self.execute_query(query, [start_node_id])[0]
+            # Get the original list of edge ids.
+            start_node_edge_list = start_node_row[3]
+            # Add '|{new_edge_id} to the end of that list.
+            start_node_edge_list += f'|{id}'
+            # Update the row's edge_ids column with this modified list.
+            query = ('''
+                UPDATE cskg_nodes
+                SET edge_ids=?
+                WHERE id=?
+            ''')
+            result = self.execute_query(query, [start_node_edge_list, start_node_id])
+
+        if not id in end_node.edge_ids:
+            # Do the same for the end node.
+            query = ('''
+                SELECT * FROM cskg_nodes
+                WHERE id=?
+            ''')
+            end_node_row = self.execute_query(query, [end_node_id])[0]
+            # Get the original list of edge ids.
+            end_node_edge_list = end_node_row[3]
+            # Add '|{new_edge_id} to the end of that list.
+            end_node_edge_list += f'|{id}'
+            # Update the row's edge_ids column with this modified list.s
+            query = ('''
+                UPDATE cskg_nodes
+                SET edge_ids=?
+                WHERE id=?
+            ''')
+            result = self.execute_query(query, [end_node_edge_list, end_node_id])
+        # end if
+
+        # Finally, fetch the start node, end node, and start and end node
+        # edges to update the caches.
+        start_node = self.get_node(node_id=start_node_id, force_fetch=True)
+        end_node = self.get_node(node_id=end_node_id, force_fetch=True)
+        start_node_edges = self.get_edges(node_id=start_node_id, force_fetch=True)
+        end_node_edges = self.get_edges(node_id=start_node_id, force_fetch=True)
+    # end write_edge
+
+
+    def _try_load_dict_cache(self, dict_name):
+        '''
+        Try and load one of the dictionary caches from file.
+        Returns an empty dict if the file is not found. 
+        '''
+        # Load from cache if possible.
+        cache_dict_file_name = f'{dict_name}.pickle'
+        cache_dict_file_directory = const.DATA_DIRECTORY + '/'
+        cache_dict_file_path = cache_dict_file_directory + cache_dict_file_name
+        cache_dict = dict()
+        # Check if the cache file exists before trying to read it.
+        if os.path.exists(cache_dict_file_path):
+            cache_dict = pickle.load(open(cache_dict_file_path, 'rb'))
+            return cache_dict
+        # end if
+        else:
+            return dict()
+    # end _try_load_dict_cache
+
+    def _write_dict_cache(self, dict_name, dict_to_cache):
+        '''
+        Write one of the dictionary caches to file.
+        '''
+        cache_dict_file_name = f'{dict_name}.pickle'
+        cache_dict_file_directory = const.DATA_DIRECTORY + '/'
+        cache_dict_file_path = cache_dict_file_directory + cache_dict_file_name
+        with open(cache_dict_file_path, 'wb') as output_file:
+            pickle.dump(dict_to_cache, output_file)
+        # end with
+    # end _write_dict_cache
+
         
 # end class CSKGQuerier

@@ -4,6 +4,13 @@ data/outputs/
 data/commonsense_knowledge.db
 data/filter_objects.txt
 data/filter_relationships.txt
+data/image_set_generation.db
+data/edge_cache.pickle
+data/node_cache.pickle
+data/node_edge_cache.pickle
+data/cskg/cskg.tv
+data/cskg/cskg_dim.tv
+data/cskg/weights.tv
 src/__pycache__/
 src/commonsense/__pycache__/
 src/hypothesis/__pycache__/
@@ -23,3 +30,4 @@ ui/Temp/
 ui/UserSettings/
 ui/Assembly-CSharp.csproj
 ui/ui.sln
+archive/

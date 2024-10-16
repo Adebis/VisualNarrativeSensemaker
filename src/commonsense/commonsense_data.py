@@ -154,7 +154,7 @@ class CommonSenseEdge:
         The edge's integer id.
     uri : str
         The uri string for this edge.
-    label : list[str]
+    labels : list[str]
         A list of the terms this edge's relationship represents. Each may be a 
         single word or a multi-word phrase.
     relation : str
@@ -232,6 +232,10 @@ class CommonSenseEdge:
         return self.relation.split('/')[2] if len(relation_split) >= 2 else ''
     # end get_relationship
 
+    def __repr__(self):
+        return self.uri
+    # end __repr__
+
 # end class CommonSenseEdge
 
 @dataclass
@@ -291,6 +295,9 @@ class ConceptNetNode(CommonSenseNode):
                 self.source_def = uri_split[6]
         # end if
     # end __init__
+
+    def __repr__(self):
+        return super().__repr__()
 # end class ConceptNetNode
 
 @dataclass 

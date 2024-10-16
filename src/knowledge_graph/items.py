@@ -14,6 +14,9 @@ from commonsense.commonsense_data import (CommonSenseNode, CommonSenseEdge,
 
 from constants import ConceptType
 
+# Debug
+from nltk.corpus.reader.wordnet import Synset as wnSynset
+
 class EdgeRelationship(Enum):
     """
     An enum for Edge relationships.
@@ -121,6 +124,11 @@ class Node:
 
         Prevents duplicate Edges by checking the Edge's id.
         """
+        # DEBUG:
+        #if edge.commonsense_edge is not None:
+        #    if edge.commonsense_edge.id == 6000001:
+        #        print('Its my edge!')
+
         if edge.id in self.edges:
             return
         self.edges[edge.id] = edge
@@ -133,9 +141,16 @@ class Node:
     def get_edges_with(self, node):
         """
         Gets a list of all of this Node's Edges with another Node. 
-        If there are none, returns the empty string.
+        If there are none, returns the empty list.
         """
-        return self.adjacency_dict[node.id] if node.id in self.adjacency_dict else list()
+
+        if node.id in self.adjacency_dict:
+            edges = self.adjacency_dict[node.id]
+            return edges
+        else:
+            return list()
+        #return self.adjacency_dict[node.id] if node.id in self.adjacency_dict else list()
+
         #return [edge for edge in self.edges.values() if edge.has_node(node)]
     # end get_edges_with
 # end class Node
@@ -169,17 +184,33 @@ class Concept(Node):
         A dictionary of the CommonSenseEdge objects incident on the 
         CommonSenseNode objects this Concept represents. Keyed by 
         CommonsenseEdge id. Default is the empty dict.
+    polarity_scores : dict[str, float]
+        The sentiment scores for this Concept as NLTK polarity scores. 
+        Keys:
+            'neg'
+            'neu'
+            'pos'
+            'compound'
+    sentiment: float
+        A single float score for the sentiment of this concept.
+        Calculated from the polarity scores.
     """
     concept_type: ConceptType
     synset: Synset
     commonsense_nodes: dict[int, CommonSenseNode]
     commonsense_edges: dict[int, CommonSenseEdge]
+    polarity_scores: dict[str, float]
+    sentiment: float
 
     def __init__(self, label: str, concept_type: ConceptType, 
-                 synset: Synset = None):
+                 synset: Synset = None, 
+                 polarity_scores: dict[str, float]=dict()):
         # Concept names are {concept}_{type_letter}_{id}, where type_letter is 
         # the first letter of the Concept's ConceptType.
         #   Examples: bicycle_o, run_a
+        # Debug
+        if type(synset) == wnSynset:
+            print('Wrong synset type!')
         type_letter = 'c'
         if concept_type == ConceptType.OBJECT:
             type_letter = 'o'
@@ -191,6 +222,9 @@ class Concept(Node):
                          hypothesized=False)
         self.concept_type = concept_type
         self.synset = synset
+        self.polarity_scores = polarity_scores
+        # Calculate sentiment from polarity scores.
+        self.sentiment = 0 - polarity_scores['neg'] + polarity_scores['pos']
         self.commonsense_nodes = dict()
         self.commonsense_edges = dict()
     # end __init__
@@ -343,7 +377,7 @@ class Instance(Node):
     def get_commonsense_edges(self) -> list[CommonSenseEdge]:
         """
         Gets the CommonSenseEdges incident on the CommonSenseNodes of the
-        Concepts of this Instnace.
+        Concepts of this Instance.
         """
         cs_edges = list()
         for concept in self.concepts:
@@ -587,6 +621,12 @@ class Action(Instance):
 
         Default value is None.
     """
+
+    objects: dict[int, Object]
+    subject: Object | None
+    object: Object | None
+    scene_graph_rel: SceneGraphRelationship | None
+
     def __init__(self, label: str, image: Image,
                  subject: Object = None, 
                  object: Object = None, 
@@ -625,6 +665,28 @@ class Action(Instance):
         """
         self.objects[object.id] = object
     # end add_object
+
+    def is_subject(self, object_: Object):
+        '''
+        Returns True if the object passed in is the subject of this Action.
+
+        Returns False otherwise.
+        '''
+        if object_ == self.subject:
+            return True
+        else:
+            return False
+    # end is_subject
+    def is_object(self, object_: Object):
+        '''
+        Returns True if the object passed in is the object of this Action.
+
+        Returns False otherwise.
+        '''
+        if object_ == self.object:
+            return True
+        else:
+            return False
 # end class Action
 
 class Edge:
